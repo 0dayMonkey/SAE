@@ -1,0 +1,20 @@
+# depslib dependency file v1.0
+1696850913 source:/home/hn301861/Bureau/SAE/main.c
+	<ncurses.h>
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<unistd.h>
+	"tools.h"
+	"jeu.c"
+
+1696850259 /home/hn301861/Bureau/SAE/tools.h
+
+1696850968 /home/hn301861/Bureau/SAE/jeu.c
+	<ncurses.h>
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<unistd.h>
+	"tools.h"
+
