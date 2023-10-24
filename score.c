@@ -11,13 +11,13 @@ typedef struct {
     double chrono;
 } Score;
 
-void trierMeilleursScores(Score scores[], int n) {
-    for (int i = 0; i < n - 1; i++) {
-        for (int j = 0; j < n - i - 1; j++) {
-            if (scores[j].chrono > scores[j + 1].chrono) {
+void trierMeilleursScores(Score scores[], int n) {                  // trie la table en ASC comparant les scores (chrono plus petit au plus grand), n=nb elements du tableau
+    for (int i = 0; i < n - 1; i++) {                               // parcourt elements de 0 a avant dernier
+        for (int j = 0; j < n - i - 1; j++) {                       // parcourt 
+            if (scores[j].chrono > scores[j + 1].chrono) {        // les éléments à l'index j et j + 1 sont comparés en fonction de leur champ chrono. 
                 Score temp = scores[j];
                 scores[j] = scores[j + 1];
-                scores[j + 1] = temp;
+                scores[j + 1] = temp;                                  // permutations grace à une variable temporaire
             }
         }
     }
