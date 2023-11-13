@@ -75,10 +75,10 @@ int main() {
         meilleursScores[TABLEAU_SCORES_TAILLE].chrono = chronoPartie;
 
         // Trier le tableau
-        trierMeilleursScores(meilleursScores, TABLEAU_SCORES_TAILLE + 1);
+        trierMeilleursScores(meilleursScores, TABLEAU_SCORES_TAILLE;
 
         // Ajuster les classements
-        ajusterClassements(meilleursScores, TABLEAU_SCORES_TAILLE + 1);
+        ajusterClassements(meilleursScores, TABLEAU_SCORES_TAILLE);
 
         // Écrire les trois meilleurs scores dans le fichier
         fichier = fopen(FICHIER_SCORES, "w");
