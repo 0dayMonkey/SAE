@@ -1,3 +1,6 @@
+// SEULEMENT LORSQUE Q EST PRESSE OU TOUTES LES CARTES SONT RETOURNEES!
+
+
 #include <ncurses.h>
 #include <stdio.h>
 #include <string.h>
