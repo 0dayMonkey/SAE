@@ -1,6 +1,5 @@
 // SEULEMENT LORSQUE Q EST PRESSE OU TOUTES LES CARTES SONT RETOURNEES ET LE CHRONO S'ARRETE!
 
-
 #include <ncurses.h>
 #include <stdio.h>
 #include <string.h>
@@ -8,21 +7,28 @@
 #define TABLEAU_SCORES_TAILLE 3
 #define FICHIER_SCORES "jeuhighscore.txt"
 
+
 typedef struct {
     int classement;
-    char nom[5];
+    char nom[5 + 1]; // Augmentation de la taille pour inclure le caractère nul
     double chrono;
 } Score;
 
-void trierMeilleursScores(Score scores[], int n) {                  // trie la table en ASC comparant les scores (chrono plus petit au plus grand), n=nb elements du tableau
-    for (int i = 0; i < n - 1; i++) {                               // parcourt elements de 0 a avant dernier
-        for (int j = 0; j < n - i - 1; j++) {                       // parcourt 
-            if (scores[j].chrono > scores[j + 1].chrono) {        // les éléments à l'index j et j + 1 sont comparés en fonction de leur champ chrono. 
+void trierMeilleursScores(Score scores[], int n) {
+    for (int i = 0; i < n - 1; i++) {
+        for (int j = 0; j < n - i - 1; j++) {
+            if (scores[j].chrono > scores[j + 1].chrono) {
                 Score temp = scores[j];
                 scores[j] = scores[j + 1];
-                scores[j + 1] = temp;                                  // permutations grace à une variable temporaire
+                scores[j + 1] = temp;
             }
         }
+    }
+}
+
+void ajusterClassements(Score scores[], int n) {
+    for (int i = 0; i < n; i++) {
+        scores[i].classement = i + 1;
     }
 }
 
@@ -33,72 +39,64 @@ int main() {
 
     Score meilleursScores[TABLEAU_SCORES_TAILLE];
 
-    FILE* fichier = fopen(FICHIER_SCORES, "r");
-    if (fichier) {
-        for (int i = 0; i < TABLEAU_SCORES_TAILLE; i++) {
-            if (fscanf(fichier, "%d %4s %lf\n", &meilleursScores[i].classement,
-                meilleursScores[i].nom, &meilleursScores[i].chrono) != 3) {
-                printw("Erreur de lecture du fichier de scores.\n");
-                refresh();
-                getch();
-                endwin();
-                return 1;
-            }
-        }
-        fclose(fichier);
-    } else {
-        printw("Le fichier de scores n'existe pas. Création du fichier...\n");
+    FILE *fichier = fopen(FICHIER_SCORES, "r");
+
+    if (!fichier) {
+        printw("Le fichier de scores n'existe pas.\n");
         refresh();
-        // Créez le fichier de scores avec des scores par défaut
-        fichier = fopen(FICHIER_SCORES, "w");
-        for (int i = 0; i < TABLEAU_SCORES_TAILLE; i++) {
-            meilleursScores[i].classement = i + 1;
-            strcpy(meilleursScores[i].nom, "AAA");
-            meilleursScores[i].chrono = 999.9;  // Valeur élevée pour l'initialisation
-            fprintf(fichier, "%d %4s %.1lf\n", meilleursScores[i].classement,
-                meilleursScores[i].nom, meilleursScores[i].chrono);
-        }
-        fclose(fichier);
+        getch();
+        endwin();
+        return 1;
     }
 
-    // Simulation d'une partie victorieuse avec un chrono de 80.0
-    double chronoPartie = 80.0;
+    for (int i = 0; i < TABLEAU_SCORES_TAILLE; i++) {
+        if (fscanf(fichier, "%d %4s %lf\n", &meilleursScores[i].classement, meilleursScores[i].nom, &meilleursScores[i].chrono) != 3) {
+            printw("Erreur de lecture du fichier de scores.\n");
+            refresh();
+            getch();
+            fclose(fichier);
+            endwin();
+            return 1;
+        }
+    }
+    fclose(fichier);
+
+    double chronoPartie = TEMPS_JOUEUR;
+
     if (chronoPartie < meilleursScores[TABLEAU_SCORES_TAILLE - 1].chrono) {
-        char nomJoueur[5];
-        printw("Bravo, vous avez battu un meilleur chrono ! Entrez votre nom (4 caractères) : ");
+        char nomJoueur[5 + 1];
+        printw("Bravo, vous avez battu un meilleur chrono ! Entrez votre nom (4 caractères SEULEMENT!) : ");
         refresh();
         getnstr(nomJoueur, 4);
 
-        // Mettez à jour le tableau des meilleurs scores
-        meilleursScores[TABLEAU_SCORES_TAILLE - 1].classement = 0;  // Indicateur que c'est un score du joueur
-        strcpy(meilleursScores[TABLEAU_SCORES_TAILLE - 1].nom, nomJoueur);
-        meilleursScores[TABLEAU_SCORES_TAILLE - 1].chrono = chronoPartie;
+        // Ajouter le nouveau score à la fin du tableau
+        meilleursScores[TABLEAU_SCORES_TAILLE].classement = 0;
+        strcpy(meilleursScores[TABLEAU_SCORES_TAILLE].nom, nomJoueur);
+        meilleursScores[TABLEAU_SCORES_TAILLE].chrono = chronoPartie;
 
-        // Triez le tableau des meilleurs scores
-        trierMeilleursScores(meilleursScores, TABLEAU_SCORES_TAILLE);
+        // Trier le tableau
+        trierMeilleursScores(meilleursScores, TABLEAU_SCORES_TAILLE + 1);
 
-        // Écrivez les trois meilleurs scores dans le fichier jeuhighscore.txt
+        // Ajuster les classements
+        ajusterClassements(meilleursScores, TABLEAU_SCORES_TAILLE + 1);
+
+        // Écrire les trois meilleurs scores dans le fichier
         fichier = fopen(FICHIER_SCORES, "w");
         if (fichier) {
             for (int i = 0; i < TABLEAU_SCORES_TAILLE; i++) {
-                if (meilleursScores[i].classement > 0) {
-                    fprintf(fichier, "%d %4s %.1lf\n", i + 1, meilleursScores[i].nom, meilleursScores[i].chrono);
-                }
+                fprintf(fichier, "%d %4s %.1lf\n", meilleursScores[i].classement, meilleursScores[i].nom, meilleursScores[i].chrono);
             }
             fclose(fichier);
         }
     }
 
-    // Affichage des meilleurs scores
     printw("Meilleurs Scores :\n");
     for (int i = 0; i < TABLEAU_SCORES_TAILLE; i++) {
-        if (meilleursScores[i].classement > 0) {
-            printw("%d. %4s %.1lf\n", meilleursScores[i].classement, meilleursScores[i].nom, meilleursScores[i].chrono);
-        }
+        printw("%d. %4s %.1lf\n", meilleursScores[i].classement, meilleursScores[i].nom, meilleursScores[i].chrono);
     }
     refresh();
 
-    getch();  // Attendez que l'utilisateur appuie sur une touche
+    getch();
     endwin();
     return 0;
 }
