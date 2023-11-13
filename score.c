@@ -6,7 +6,7 @@
 
 #define TABLEAU_SCORES_TAILLE 3
 #define FICHIER_SCORES "jeuhighscore.txt"
-#define TEMPS_JOUEUR 1
+#define TEMPS_JOUEUR 1.0
 
 typedef struct {
     int classement;
