@@ -32,7 +32,8 @@ int main() {
 
     // Ajout d'une bordure à la première fenêtre
     box(win1, 0, 0);
-        mvwprintw(win1, 1, 1, "Le but du jeu est simple : Trouve un couple de carte le plus rapidement possible ! Fais attention, le temps passe vite chef !");
+    mvwprintw(win1, 1, 1, "Le but du jeu est simple : Trouve un couple de carte le plus rapidement possible ! Fais attention, le temps passe vite chef !");
+
     // Dimensions de la troisième fenêtre (fenêtre du bas)
     int win3Height = 5;
     int win3Width = COLS;  // Largeur complète de l'écran
@@ -53,14 +54,18 @@ int main() {
     wrefresh(win2);
     wrefresh(win3);
 
-     // Variables pour le chronomètre
+    // Variables pour le chronomètre
     struct timespec start_time, current_time;
     double chronoactuel = 0;
 
     // Récupération du temps de départ
     clock_gettime(CLOCK_MONOTONIC, &start_time);
 
+    // Configuration de la temporisation pour la fonction timeout
+    timeout(100);  // 100 millisecondes
+
     // Boucle pour le chronomètre
+    int ch;
     while (1) {
         // Récupération du temps actuel
         clock_gettime(CLOCK_MONOTONIC, &current_time);
@@ -75,12 +80,19 @@ int main() {
         // Rafraîchissement de la fenêtre de droite
         wrefresh(win2);
 
-        // Pause de 100 millisecondes pour suivre le temps réel
-        usleep(100000);
+        // Vérifier si une touche a été pressée
+        ch = getch();
+        if (ch == 'q') {
+            break;  // Sortir de la boucle, mais le programme continue
+        }
     }
 
+    // Vous pouvez mettre ici le code que vous souhaitez exécuter après l'arrêt du chronomètre
+    mvwprintw(win3,1, 1, "Chrono arrêté : %.1fs", chronoactuel);
+    wrefresh(win3);
+
     // Fin de ncurses
-    endwin();
+    sleep(15);
 
     return 0;
 }
