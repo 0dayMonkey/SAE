@@ -1,0 +1,202 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <ncurses.h>
+#include <time.h>
+#include <string.h>
+
+#define TABLEAU_SCORES_TAILLE 3
+#define FICHIER_SCORES "jeuhighscore.txt"
+#define TEMPS_JOUEUR 1.0
+
+typedef struct {
+    int classement;
+    char nom[5]; // Augmentation de la taille pour inclure le caractère nul
+    double chrono;
+} Score;
+
+void trierMeilleursScores(Score scores[], int n) {
+    for (int i = 0; i < n - 1; i++) {
+        for (int j = 0; j < n - i - 1; j++) {
+            if (scores[j].chrono > scores[j + 1].chrono) {
+                Score temp = scores[j];
+                scores[j] = scores[j + 1];
+                scores[j + 1] = temp;
+            }
+        }
+    }
+}
+
+void ajusterClassements(Score scores[], int n) {
+    for (int i = 0; i < n; i++) {
+        scores[i].classement = i + 1;
+    }
+}
+
+void initialiserMeilleursScores(Score scores[], int n) {
+    for (int i = 0; i < n; i++) {
+        scores[i].classement = i + 1;
+        strcpy(scores[i].nom, "AAA");
+        scores[i].chrono = 999.9;
+    }
+}
+
+int main() {
+    initscr();
+    noecho();
+    curs_set(0);
+    start_color();
+
+    // Dimensions de la deuxième fenêtre (fenêtre de droite)
+    int win2Height = 5;
+    int win2Width = COLS / 3;  // 1/3 de la largeur de l'écran
+    int win2StartY = 0;  // En haut de l'écran
+    int win2StartX = COLS * 2 / 3;  // À 2/3 de la largeur de l'écran
+
+    // Création de la deuxième fenêtre
+    WINDOW *win2 = newwin(win2Height, win2Width, win2StartY, win2StartX);
+    box(win2, 0, 0);
+
+    // Dimensions de la première fenêtre (fenêtre de gauche)
+    int win1Height = win2Height;
+    int win1Width = COLS - win2Width;  // Reste de la largeur de l'écran
+    int win1StartY = 0;  // En haut de l'écran
+    int win1StartX = 0;  // À l'extrême gauche de l'écran
+
+    // Création de la première fenêtre
+    WINDOW *win1 = newwin(win1Height, win1Width, win1StartY, win1StartX);
+    box(win1, 0, 0);
+    mvwprintw(win1, 1, 1, "Le but du jeu est simple : Trouve un couple de carte le plus rapidement possible ! Fais attention, le temps passe vite chef !");
+
+    // Dimensions de la troisième fenêtre (fenêtre du bas)
+    int win3Height = 10;  // Augmentation de la hauteur pour afficher les scores
+    int win3Width = COLS;  // Largeur complète de l'écran
+    int win3StartY = LINES - win3Height;  // En bas de l'écran
+    int win3StartX = 0;  // À l'extrême gauche de l'écran
+
+    // Création de la troisième fenêtre
+    WINDOW *win3 = newwin(win3Height, win3Width, win3StartY, win3StartX);
+    box(win3, 0, 0);
+
+    // Rafraîchissement de l'écran pour afficher les fenêtres
+    refresh();
+    wrefresh(win1);
+    wrefresh(win2);
+    wrefresh(win3);
+
+    // Variables pour le chronomètre
+    struct timespec start_time, current_time;
+    double chronoactuel = 0;
+
+    // Récupération du temps de départ
+    clock_gettime(CLOCK_MONOTONIC, &start_time);
+
+    // Configuration de la temporisation pour la fonction timeout
+    timeout(0);
+
+    // Boucle pour le chronomètre
+    int ch;
+    while (1) {
+        // Récupération du temps actuel
+        clock_gettime(CLOCK_MONOTONIC, &current_time);
+
+        // Calcul du temps écoulé en secondes avec une précision de 0.1 seconde
+        chronoactuel = (double)(current_time.tv_sec - start_time.tv_sec) +
+                       (double)(current_time.tv_nsec - start_time.tv_nsec) / 1e9;
+
+        // Affichage du temps dans la fenêtre de droite
+        mvwprintw(win2, 1, 1, "Chrono : %.1fs", chronoactuel);
+        wrefresh(win2);
+
+        // Vérifier si une touche a été pressée
+        ch = getch();
+        if (ch != ERR) {
+            if (ch == 'q') {
+                break;  // Sortir de la boucle, mais le programme continue
+            }
+        }
+
+        // Ajoutez ici une petite pause si nécessaire pour éviter une utilisation intensive du processeur
+        // usleep(10000); // Pause de 10 millisecondes (ajustez selon vos besoins)
+    }
+
+    // Partie du code pour gérer les scores
+
+    // Chargement des scores depuis le fichier
+    Score meilleursScores[TABLEAU_SCORES_TAILLE];
+    FILE *fichier = fopen(FICHIER_SCORES, "r");
+
+    if (!fichier) {
+        printw("Le fichier de scores n'existe pas. Création du fichier...\n");
+        refresh();
+        getch();
+
+        // Initialiser les meilleurs scores avec des valeurs par défaut
+        initialiserMeilleursScores(meilleursScores, TABLEAU_SCORES_TAILLE);
+
+        // Écrire les valeurs par défaut dans le fichier
+        fichier = fopen(FICHIER_SCORES, "w");
+        if (fichier) {
+            for (int i = 0; i < TABLEAU_SCORES_TAILLE; i++) {
+                fprintf(fichier, "%d %4s %.1lf\n", meilleursScores[i].classement, meilleursScores[i].nom, meilleursScores[i].chrono);
+            }
+            fclose(fichier);
+        }
+    } else {
+        // Charger les meilleurs scores depuis le fichier
+        for (int i = 0; i < TABLEAU_SCORES_TAILLE; i++) {
+            if (fscanf(fichier, "%d %4s %lf\n", &meilleursScores[i].classement, meilleursScores[i].nom, &meilleursScores[i].chrono) != 3) {
+                printw("Erreur de lecture du fichier de scores.\n");
+                refresh();
+                getch();
+                fclose(fichier);
+                endwin();
+                return 1;
+            }
+        }
+        fclose(fichier);
+    }
+
+    double chronoPartie = TEMPS_JOUEUR;
+
+    // Score de la partie actuelle
+    if (chronoPartie < meilleursScores[TABLEAU_SCORES_TAILLE - 1].chrono) {
+        char nomJoueur[5];
+        printw("Bravo, vous avez battu un meilleur chrono ! Entrez votre nom (4 caractères SEULEMENT!) : ");
+        refresh();
+        getnstr(nomJoueur, 4);
+
+        // Remplacer le dernier score du tableau
+        meilleursScores[TABLEAU_SCORES_TAILLE - 1].classement = 0;
+        strcpy(meilleursScores[TABLEAU_SCORES_TAILLE - 1].nom, nomJoueur);
+        meilleursScores[TABLEAU_SCORES_TAILLE - 1].chrono = chronoPartie;
+
+        // Trier le tableau
+        trierMeilleursScores(meilleursScores, TABLEAU_SCORES_TAILLE);
+
+        // Ajuster les classements
+        ajusterClassements(meilleursScores, TABLEAU_SCORES_TAILLE);
+
+        // Écrire les trois meilleurs scores dans le fichier
+        fichier = fopen(FICHIER_SCORES, "w");
+        if (fichier) {
+            for (int i = 0; i < TABLEAU_SCORES_TAILLE; i++) {
+                fprintf(fichier, "%d %4s %.1lf\n", meilleursScores[i].classement, meilleursScores[i].nom, meilleursScores[i].chrono);
+            }
+            fclose(fichier);
+        }
+    }
+
+    // Affichage des scores dans la fenêtre
+    mvwprintw(win3, 1, 1, "Meilleurs Scores :");
+    for (int i = 0; i < TABLEAU_SCORES_TAILLE; i++) {
+        mvwprintw(win3, i + 2, 1, "%d. %4s %.1lf", meilleursScores[i].classement, meilleursScores[i].nom, meilleursScores[i].chrono);
+    }
+
+    wrefresh(win3);
+
+    // Fin de ncurses
+    getch();
+    endwin();
+    sleep(15);
+    return 0;
+}
