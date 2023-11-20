@@ -54,24 +54,29 @@ int main() {
     wrefresh(win3);
 
      // Variables pour le chronomètre
-    time_t start_time = time(NULL);
-    int chronoactuel = 0;
+    struct timespec start_time, current_time;
+    double chronoactuel = 0;
+
+    // Récupération du temps de départ
+    clock_gettime(CLOCK_MONOTONIC, &start_time);
 
     // Boucle pour le chronomètre
-    int ch;
     while (1) {
-        // Calcul du temps écoulé
-        time_t current_time = time(NULL);
-        chronoactuel = difftime(current_time, start_time);
+        // Récupération du temps actuel
+        clock_gettime(CLOCK_MONOTONIC, &current_time);
+
+        // Calcul du temps écoulé en secondes avec une précision de 0.1 seconde
+        chronoactuel = (double)(current_time.tv_sec - start_time.tv_sec) +
+                       (double)(current_time.tv_nsec - start_time.tv_nsec) / 1e9;
 
         // Affichage du temps dans la fenêtre de droite
-        mvwprintw(win2, 1, 1, "Chrono : %ds", chronoactuel);
+        mvwprintw(win2, 1, 1, "Chrono : %.1fs", chronoactuel);
 
         // Rafraîchissement de la fenêtre de droite
         wrefresh(win2);
 
-        // Pause de 1 seconde pour éviter une utilisation excessive du processeur
-        sleep(1);
+        // Pause de 100 millisecondes pour suivre le temps réel
+        usleep(100000);
     }
 
     // Fin de ncurses
@@ -79,4 +84,3 @@ int main() {
 
     return 0;
 }
-
