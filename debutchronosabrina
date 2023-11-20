@@ -1,0 +1,82 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <ncurses.h>
+#include <time.h>
+
+int main() {
+    initscr();          // Initialisation de ncurses
+    noecho();           // Désactivation de l'écho des caractères saisis
+    curs_set(0);        // Désactivation du curseur
+    start_color();      // Activation de la couleur (optionnel)
+
+    // Dimensions de la deuxième fenêtre (fenêtre de droite)
+    int win2Height = 5;
+    int win2Width = COLS / 3;  // 1/3 de la largeur de l'écran
+    int win2StartY = 0;  // En haut de l'écran
+    int win2StartX = COLS * 2 / 3;  // À 2/3 de la largeur de l'écran
+
+    // Création de la deuxième fenêtre
+    WINDOW *win2 = newwin(win2Height, win2Width, win2StartY, win2StartX);
+
+    // Ajout d'une bordure à la deuxième fenêtre
+    box(win2, 0, 0);
+
+    // Dimensions de la première fenêtre (fenêtre de gauche)
+    int win1Height = win2Height;
+    int win1Width = COLS - win2Width;  // Reste de la largeur de l'écran
+    int win1StartY = 0;  // En haut de l'écran
+    int win1StartX = 0;  // À l'extrême gauche de l'écran
+
+    // Création de la première fenêtre
+    WINDOW *win1 = newwin(win1Height, win1Width, win1StartY, win1StartX);
+
+    // Ajout d'une bordure à la première fenêtre
+    box(win1, 0, 0);
+        mvwprintw(win1, 1, 1, "Le but du jeu est simple : Trouve un couple de carte le plus rapidement possible ! Fais attention, le temps passe vite chef !");
+    // Dimensions de la troisième fenêtre (fenêtre du bas)
+    int win3Height = 5;
+    int win3Width = COLS;  // Largeur complète de l'écran
+    int win3StartY = LINES - win3Height;  // En bas de l'écran
+    int win3StartX = 0;  // À l'extrême gauche de l'écran
+
+    // Création de la troisième fenêtre
+    WINDOW *win3 = newwin(win3Height, win3Width, win3StartY, win3StartX);
+
+    // Ajout d'une bordure à la troisième fenêtre
+    box(win3, 0, 0);
+
+    // Rafraîchissement de l'écran pour afficher les fenêtres
+    refresh();
+
+    // Rafraîchissement des fenêtres pour afficher les bordures
+    wrefresh(win1);
+    wrefresh(win2);
+    wrefresh(win3);
+
+     // Variables pour le chronomètre
+    time_t start_time = time(NULL);
+    int chronoactuel = 0;
+
+    // Boucle pour le chronomètre
+    int ch;
+    while (1) {
+        // Calcul du temps écoulé
+        time_t current_time = time(NULL);
+        chronoactuel = difftime(current_time, start_time);
+
+        // Affichage du temps dans la fenêtre de droite
+        mvwprintw(win2, 1, 1, "Chrono : %ds", chronoactuel);
+
+        // Rafraîchissement de la fenêtre de droite
+        wrefresh(win2);
+
+        // Pause de 1 seconde pour éviter une utilisation excessive du processeur
+        sleep(1);
+    }
+
+    // Fin de ncurses
+    endwin();
+
+    return 0;
+}
+
