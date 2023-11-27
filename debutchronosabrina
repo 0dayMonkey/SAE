@@ -1,71 +1,22 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
 #include <ncurses.h>
+#include <unistd.h>
 #include <time.h>
 
-int main() {
-    initscr();          // Initialisation de ncurses
-    noecho();           // Désactivation de l'écho des caractères saisis
-    curs_set(0);        // Désactivation du curseur
-    start_color();      // Activation de la couleur (optionnel)
+pthread_mutex_t ncurses_mutex;
 
-    // Dimensions de la deuxième fenêtre (fenêtre de droite)
-    int win2Height = 5;
-    int win2Width = COLS / 3;  // 1/3 de la largeur de l'écran
-    int win2StartY = 0;  // En haut de l'écran
-    int win2StartX = COLS * 2 / 3;  // À 2/3 de la largeur de l'écran
-
-    // Création de la deuxième fenêtre
-    WINDOW *win2 = newwin(win2Height, win2Width, win2StartY, win2StartX);
-
-    // Ajout d'une bordure à la deuxième fenêtre
-    box(win2, 0, 0);
-
-    // Dimensions de la première fenêtre (fenêtre de gauche)
-    int win1Height = win2Height;
-    int win1Width = COLS - win2Width;  // Reste de la largeur de l'écran
-    int win1StartY = 0;  // En haut de l'écran
-    int win1StartX = 0;  // À l'extrême gauche de l'écran
-
-    // Création de la première fenêtre
-    WINDOW *win1 = newwin(win1Height, win1Width, win1StartY, win1StartX);
-
-    // Ajout d'une bordure à la première fenêtre
-    box(win1, 0, 0);
-    mvwprintw(win1, 1, 1, "Le but du jeu est simple : Trouve un couple de carte le plus rapidement possible ! Fais attention, le temps passe vite chef !");
-
-    // Dimensions de la troisième fenêtre (fenêtre du bas)
-    int win3Height = 5;
-    int win3Width = COLS;  // Largeur complète de l'écran
-    int win3StartY = LINES - win3Height;  // En bas de l'écran
-    int win3StartX = 0;  // À l'extrême gauche de l'écran
-
-    // Création de la troisième fenêtre
-    WINDOW *win3 = newwin(win3Height, win3Width, win3StartY, win3StartX);
-
-    // Ajout d'une bordure à la troisième fenêtre
-    box(win3, 0, 0);
-
-    // Rafraîchissement de l'écran pour afficher les fenêtres
-    refresh();
-
-    // Rafraîchissement des fenêtres pour afficher les bordures
-    wrefresh(win1);
-    wrefresh(win2);
-    wrefresh(win3);
-
-    // Variables pour le chronomètre
+void* updateTimer(void* arg) {
+    WINDOW* timerWin = (WINDOW*)arg;
     struct timespec start_time, current_time;
     double chronoactuel = 0;
 
     // Récupération du temps de départ
     clock_gettime(CLOCK_MONOTONIC, &start_time);
 
-    // Configuration de la temporisation pour la fonction timeout
-    timeout(100);  // 100 millisecondes
-
     // Boucle pour le chronomètre
-    int ch;
     while (1) {
         // Récupération du temps actuel
         clock_gettime(CLOCK_MONOTONIC, &current_time);
@@ -75,24 +26,176 @@ int main() {
                        (double)(current_time.tv_nsec - start_time.tv_nsec) / 1e9;
 
         // Affichage du temps dans la fenêtre de droite
-        mvwprintw(win2, 1, 1, "Chrono : %.1fs", chronoactuel);
+        pthread_mutex_lock(&ncurses_mutex);
+        mvwprintw(timerWin, 1, 1, "Chrono : %.1fs", chronoactuel);
+        wrefresh(timerWin);
+        pthread_mutex_unlock(&ncurses_mutex);
 
-        // Rafraîchissement de la fenêtre de droite
-        wrefresh(win2);
-
-        // Vérifier si une touche a été pressée
-        ch = getch();
-        if (ch == 'q') {
-            break;  // Sortir de la boucle, mais le programme continue
-        }
+        // Pause de 100 millisecondes
+        struct timespec req, rem;
+        req.tv_sec = 0;
+        req.tv_nsec = 100000000;  // 100 millisecondes
+        nanosleep(&req, &rem);
     }
 
-    // Vous pouvez mettre ici le code que vous souhaitez exécuter après l'arrêt du chronomètre
-    mvwprintw(win3,1, 1, "Chrono arrêté : %.1fs", chronoactuel);
-    wrefresh(win3);
+    return NULL;
+}
 
-    // Fin de ncurses
-    sleep(15);
+int main() {
+    pthread_mutex_init(&ncurses_mutex, NULL);
+    initscr();
+    noecho();
+    curs_set(0);
+    start_color();  // Activer la couleur
+    init_pair(1, COLOR_YELLOW, COLOR_BLACK);  // paire de couleur (jaune sur fond noir pour l'instant, on change peut etre après)
+
+    int yMax, xMax;
+    getmaxyx(stdscr, yMax, xMax);
+
+    int mainWinWidth = (xMax / 2) - 3;
+    int mainWinHeight = (yMax / 6) - 2;
+    int mainWinX = 1;
+    int mainWinY = 1;
+    WINDOW *mainWin = newwin(mainWinHeight, mainWinWidth, mainWinY, mainWinX);
+    refresh();
+
+    int timerWinWidth = (xMax / 2) - 3;
+    int timerWinHeight = (yMax / 6) - 2;
+    int timerWinX = xMax - 79;
+    int timerWinY = 1;
+    WINDOW *timerWin = newwin(timerWinHeight, timerWinWidth, timerWinY, timerWinX);
+    box(timerWin, 0, 0);
+    wrefresh(timerWin);
+
+    char text[] = "Le but du jeu est simple : Trouve un couple de carte le plus rapidement possible ! Fais attention, le temps passe vite chef ! ";
+    int textLength = strlen(text);
+    int winWidth = getmaxx(mainWin);
+
+    struct timespec start_time, current_time;
+    double chronoactuel = 0;
+
+    int rows = 3;
+    int cols = 4;
+
+    // taille de la carte
+    int cardWidth = 15;
+    int cardHeight = 10;
+    // espacement de la grille
+    int horizontalSpacing = 0;
+    int verticalSpacing = 1;
+
+    int gridWidth = (cols * cardWidth);
+    int gridHeight = (rows * cardHeight) + ((rows - 1) * verticalSpacing);
+
+    int gridX = (xMax - gridWidth) / 2;
+    int gridY = 10;
+
+    // Créer la fenêtre de la grille
+    WINDOW *gridWin = newwin(gridHeight, gridWidth, gridY, gridX);
+    wrefresh(gridWin);
+
+    int cardX = gridX;
+    int cardY = gridY;
+    int selectedCard = 0;  // index de la carte sélectionnée
+    int selectedX = cardX;
+    int selectedY = cardY;
+
+    // Affichage des cartes dans la grille
+    for (int row = 0; row < rows; row++) {
+        for (int col = 0; col < cols; col++) {
+            WINDOW *cardWin = newwin(cardHeight, cardWidth, cardY, cardX);
+
+            pthread_mutex_lock(&ncurses_mutex);
+
+            wattron(cardWin, COLOR_PAIR(1));  // Activer la couleur jaune
+            box(cardWin, 0, 0);
+            wattroff(cardWin, COLOR_PAIR(1));  // Désactiver la couleur jaune
+            wrefresh(cardWin);
+
+            pthread_mutex_unlock(&ncurses_mutex);
+
+            cardX += cardWidth + horizontalSpacing;
+        }
+        cardX = gridX;
+        cardY += cardHeight + verticalSpacing;
+    }
+
+    // Récupération du temps de départ
+    clock_gettime(CLOCK_MONOTONIC, &start_time);
+
+    // Lancement du thread pour le chronomètre
+    pthread_t timerThread;
+    pthread_create(&timerThread, NULL, updateTimer, timerWin);
+
+    // Boucle principale
+    while (1) {
+        // Récupération du temps actuel
+        clock_gettime(CLOCK_MONOTONIC, &current_time);
+
+        // Calcul du temps écoulé en secondes avec une précision de 0.1 seconde
+        chronoactuel = (double)(current_time.tv_sec - start_time.tv_sec) +
+                       (double)(current_time.tv_nsec - start_time.tv_nsec) / 1e9;
+
+        // Affichage du texte défilant
+        for (int i = 0; i < textLength; i++) {
+            int x, y;
+            getyx(mainWin, y, x);
+            pthread_mutex_lock(&ncurses_mutex);
+            werase(mainWin);
+
+            for (int j = 0; j < winWidth - 2; j++) {
+                int idx = (i + j) % textLength;
+                mvwaddch(mainWin, 2, j + 1, text[(idx + textLength) % textLength]);
+            }
+
+            box(mainWin, 0, 0);
+            wrefresh(mainWin);
+            pthread_mutex_unlock(&ncurses_mutex);
+
+            // Utilisation de nanosleep --> plus robuste
+            struct timespec req, rem;
+            req.tv_sec = 0;
+            req.tv_nsec = 100000000;  // 100 millisecondes
+            nanosleep(&req, &rem);
+        }
+
+        int ch = getch();
+        // switch de carte
+        WINDOW *previousCard = newwin(cardHeight, cardWidth, selectedY, selectedX);
+        wattron(previousCard, COLOR_PAIR(1));  // Activer la couleur jaune
+        box(previousCard, 0, 0);
+        wattroff(previousCard, COLOR_PAIR(1));  // Désactiver la couleur jaune
+        wrefresh(previousCard);
+
+        // gestion des inputs
+        if (ch == 'a' && selectedCard > 0) {
+            selectedCard--;
+        } else if (ch == 'e' && selectedCard < (rows * cols - 1)) {
+            selectedCard++;
+        } else if(ch == 'q') {
+            break;
+        }
+
+        // calcul de positionnement de carte
+        selectedX = gridX + (selectedCard % cols) * (cardWidth + horizontalSpacing);
+        selectedY = gridY + (selectedCard / cols) * (cardHeight + verticalSpacing);
+
+        attron(COLOR_PAIR(1));  // Activer la couleur jaune
+        WINDOW *selectedCardWin = newwin(cardHeight, cardWidth, selectedY, selectedX);
+        box(selectedCardWin, 0, 0);
+        wrefresh(selectedCardWin);
+        attroff(COLOR_PAIR(1));  // Désactiver la couleur jaune
+    }
+
+    // Arrêt du thread du chronomètre
+    pthread_cancel(timerThread);
+    pthread_join(timerThread, NULL);
+
+    delwin(mainWin);
+    delwin(timerWin);
+    delwin(gridWin);
+    getch();
+    endwin();
 
     return 0;
 }
