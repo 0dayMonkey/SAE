@@ -1,39 +1,35 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include <ncurses.h>
 #include <string.h>
 #include <pthread.h>
-#include <ncurses.h>
 #include <unistd.h>
-#include <time.h>
+
+typedef struct {
+    int minutes;
+    int seconds;
+    int milliseconds;
+} Timer;
 
 void* updateTimer(void* arg) {
-    WINDOW* timerWin = (WINDOW*)arg;
-    struct timespec start_time, current_time;
-    double chronoactuel = 0;
+    Timer* timer = (Timer*)arg;
 
-    // Récupération du temps de départ
-    clock_gettime(CLOCK_MONOTONIC, &start_time);
-
-    // Boucle pour le chronomètre
     while (1) {
-        // Récupération du temps actuel
-        clock_gettime(CLOCK_MONOTONIC, &current_time);
+        usleep(10000);
+        timer->milliseconds += 10;
 
-        // Calcul du temps écoulé en secondes avec une précision de 0.1 seconde
-        chronoactuel = (double)(current_time.tv_sec - start_time.tv_sec) +
-                       (double)(current_time.tv_nsec - start_time.tv_nsec) / 1e9;
+        if (timer->milliseconds >= 1000) {
+            timer->milliseconds -= 1000;
+            timer->seconds++;
 
-        // Affichage du temps dans la fenêtre de droite
-        mvwprintw(timerWin, 1, 1, "Chrono : %.1fs", chronoactuel);
-
-        // Rafraîchissement de la fenêtre de droite
-        wrefresh(timerWin);
-
-        // Pause de 100 millisecondes
-        usleep(100000);
+            if (timer->seconds >= 60) {
+                timer->seconds -= 60;
+                timer->minutes++;
+            }
+        }
     }
-}
 
+    return NULL;
+}
+pthread_mutex_t ncurses_mutex;
 void* updateText(void* arg) {
     WINDOW* mainWin = (WINDOW*)arg;
     char text[] = "Le but du jeu est simple : Trouve un couple de carte le plus rapidement possible ! Fais attention, le temps passe vite chef ! ";
@@ -44,7 +40,8 @@ void* updateText(void* arg) {
         for (int i = 0; i < textLength; i++) {
             int x, y;
             getyx(mainWin, y, x);
-            werase(mainWin);
+            pthread_mutex_lock(&ncurses_mutex);
+    werase(mainWin);
 
             for (int j = 0; j < winWidth; j++) {
                 int idx = (i + j) % textLength;
@@ -53,58 +50,65 @@ void* updateText(void* arg) {
 
             box(mainWin, 0, 0);
             wrefresh(mainWin);
-
-            // Pause de 100 millisecondes
-            usleep(100000);
+    pthread_mutex_unlock(&ncurses_mutex);
+            usleep(300000);  // Ã§a dort ouuuu??
         }
     }
 }
 
+
+
 int main() {
-    // Initialisation de ncurses
+    pthread_mutex_init(&ncurses_mutex, NULL);
     initscr();
     noecho();
     curs_set(0);
     start_color();  // Activer la couleur
-    init_pair(1, COLOR_YELLOW, COLOR_BLACK);  // Définir une paire de couleurs (jaune sur fond noir pour l'instant, on change peut etre après)
+    init_pair(1, COLOR_YELLOW, COLOR_BLACK);  // paire de couleur (jaune sur fond noir pour l'instant, on change peut etre aprÃ¨s)
 
     int yMax, xMax;
     getmaxyx(stdscr, yMax, xMax);
 
     int haut = 30;
     int large = 50;
-    int mainWinWidth = (xMax / 2) - 3;
-    int mainWinHeight = (yMax / 6) - 2;
+    int mainWinWidth = (xMax / 2)-3;
+    int mainWinHeight = (yMax/6)-2;
     int mainWinX = 1;
     int mainWinY = 1;
     WINDOW *mainWin = newwin(mainWinHeight, mainWinWidth, mainWinY, mainWinX);
     refresh();
 
-    int timerWinWidth = (xMax / 2) - 3;
-    int timerWinHeight = (yMax / 6) - 2;
+    int timerWinWidth = (xMax / 2)-3 ;
+    int timerWinHeight = (yMax/6)-2;
     int timerWinX = xMax - 79;
     int timerWinY = 1;
     WINDOW *timerWin = newwin(timerWinHeight, timerWinWidth, timerWinY, timerWinX);
     box(timerWin, 0, 0);
     wrefresh(timerWin);
 
-    int textWinWidth = (xMax / 2) - 3;
-    int textWinHeight = (yMax / 6) - 2;
+    int textWinWidth = (xMax / 2)-3 ;
+    int textWinHeight = (yMax/6)-2;
     int textWinX = 1;
     int textWinY = 1;
     WINDOW *textWin = newwin(textWinHeight, textWinWidth, textWinY, textWinX);
     box(textWin, 0, 0);
     wrefresh(textWin);
 
+    Timer timer = {0, 0, 0};
     pthread_t timerThread, textThread;
-    pthread_create(&timerThread, NULL, updateTimer, timerWin);
+    pthread_create(&timerThread, NULL, updateTimer, &timer);
     pthread_create(&textThread, NULL, updateText, textWin);
+
+    /* affichage des cartes (dans un cadrillage 4*3)
+    faut archi pas toucher a Ã§a sinon Ã§a part en couille les chefs*/
 
     int rows = 3;
     int cols = 4;
 
+    // taille de la carte
     int cardWidth = 15;
     int cardHeight = 10;
+    // espacement de la grille
     int horizontalSpacing = 0;
     int verticalSpacing = 1;
 
@@ -114,6 +118,7 @@ int main() {
     int gridX = (xMax - gridWidth) / 2;
     int gridY = 10;
 
+    // CrÃ©er la fenÃªtre de la grille
     WINDOW *gridWin = newwin(gridHeight, gridWidth, gridY, gridX);
     wrefresh(gridWin);
 
@@ -121,15 +126,17 @@ int main() {
     int cardY = gridY;
     int selectedX = cardX;
     int selectedY = cardY;
-    int selectedCard = 0;
+    int selectedCard = 0;  // index de la carte sÃ©lectionnÃ©e
 
     for (int row = 0; row < rows; row++) {
         for (int col = 0; col < cols; col++) {
             WINDOW *cardWin = newwin(cardHeight, cardWidth, cardY, cardX);
-            wattron(cardWin, COLOR_PAIR(1));
+            wattron(cardWin, COLOR_PAIR(1));  // Activer la couleur jaune
             box(cardWin, 0, 0);
-            wattroff(cardWin, COLOR_PAIR(1));
-            wrefresh(cardWin);
+            wattroff(cardWin, COLOR_PAIR(1));  // DÃ©sactiver la couleur jaune
+            pthread_mutex_lock(&ncurses_mutex);
+    wrefresh(cardWin);
+    pthread_mutex_unlock(&ncurses_mutex);
 
             cardX += cardWidth + horizontalSpacing;
         }
@@ -139,29 +146,38 @@ int main() {
 
     while (1) {
         int ch = getch();
-
+        // switch de carte
         WINDOW *previousCard = newwin(cardHeight, cardWidth, selectedY, selectedX);
-        wattron(previousCard, COLOR_PAIR(1));
+        wattron(previousCard, COLOR_PAIR(1));  // Activer la couleur jaune
         box(previousCard, 0, 0);
-        wattroff(previousCard, COLOR_PAIR(1));
+        wattroff(previousCard, COLOR_PAIR(1));  // DÃ©sactiver la couleur jaune
         wrefresh(previousCard);
 
+        // gestion des inputs
         if (ch == 'a' && selectedCard > 0) {
             selectedCard--;
         } else if (ch == 'e' && selectedCard < (rows * cols - 1)) {
             selectedCard++;
-        }
 
+        }else if(ch == 'q') {
+            break;
+            }
+
+        // calcul de posiitonnement de carte
         selectedX = gridX + (selectedCard % cols) * (cardWidth + horizontalSpacing);
         selectedY = gridY + (selectedCard / cols) * (cardHeight + verticalSpacing);
 
-        attron(COLOR_PAIR(1));
+        attron(COLOR_PAIR(1));  // Activer la couleur jaune
         WINDOW *selectedCardWin = newwin(cardHeight, cardWidth, selectedY, selectedX);
         box(selectedCardWin, 0, 0);
         wrefresh(selectedCardWin);
-        attroff(COLOR_PAIR(1));
+        attroff(COLOR_PAIR(1));  // DÃ©sactiver la couleur jaune
     }
 
+    delwin(mainWin);
+    delwin(timerWin);
+    delwin(textWin);
+    delwin(gridWin);
     getch();
     endwin();
     pthread_cancel(timerThread);
