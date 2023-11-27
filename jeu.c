@@ -43,7 +43,7 @@ void* updateText(void* arg) {
             pthread_mutex_lock(&ncurses_mutex);
     werase(mainWin);
 
-            for (int j = 0; j < winWidth; j++) {
+            for (int j = 0; j < winWidth-2; j++) {
                 int idx = (i + j) % textLength;
                 mvwaddch(mainWin, 2, j + 1, text[(idx + textLength) % textLength]);
             }
@@ -51,7 +51,11 @@ void* updateText(void* arg) {
             box(mainWin, 0, 0);
             wrefresh(mainWin);
     pthread_mutex_unlock(&ncurses_mutex);
-            usleep(300000);  // ça dort ouuuu??
+            // utilisation de nanosleep --> plus robuste
+            struct timespec req, rem;
+            req.tv_sec = 0;
+            req.tv_nsec = 300000 * 1000;  // 300000 microS vers nanoS
+            nanosleep(&req, &rem);
         }
     }
 }
