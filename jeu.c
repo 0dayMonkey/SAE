@@ -29,7 +29,7 @@ void* updateTimer(void* arg) {
 
     return NULL;
 }
-
+pthread_mutex_t ncurses_mutex;
 void* updateText(void* arg) {
     WINDOW* mainWin = (WINDOW*)arg;
     char text[] = "Le but du jeu est simple : Trouve un couple de carte le plus rapidement possible ! Fais attention, le temps passe vite chef ! ";
@@ -40,7 +40,8 @@ void* updateText(void* arg) {
         for (int i = 0; i < textLength; i++) {
             int x, y;
             getyx(mainWin, y, x);
-            werase(mainWin);
+            pthread_mutex_lock(&ncurses_mutex);
+    werase(mainWin);
 
             for (int j = 0; j < winWidth; j++) {
                 int idx = (i + j) % textLength;
@@ -49,17 +50,21 @@ void* updateText(void* arg) {
 
             box(mainWin, 0, 0);
             wrefresh(mainWin);
-            usleep(100000);  // Sleep for 100 milliseconds
+    pthread_mutex_unlock(&ncurses_mutex);
+            usleep(300000);  // ça dort ouuuu??
         }
     }
 }
 
+
+
 int main() {
+    pthread_mutex_init(&ncurses_mutex, NULL);
     initscr();
     noecho();
     curs_set(0);
     start_color();  // Activer la couleur
-    init_pair(1, COLOR_YELLOW, COLOR_BLACK);  // Définir une paire de couleurs (jaune sur fond noir pour l'instant, on change peut etre après)
+    init_pair(1, COLOR_YELLOW, COLOR_BLACK);  // paire de couleur (jaune sur fond noir pour l'instant, on change peut etre après)
 
     int yMax, xMax;
     getmaxyx(stdscr, yMax, xMax);
@@ -96,14 +101,14 @@ int main() {
 
     /* affichage des cartes (dans un cadrillage 4*3)
     faut archi pas toucher a ça sinon ça part en couille les chefs*/
-    
+
     int rows = 3;
     int cols = 4;
 
     // taille de la carte
     int cardWidth = 15;
     int cardHeight = 10;
-    // espeacement de la grille
+    // espacement de la grille
     int horizontalSpacing = 0;
     int verticalSpacing = 1;
 
@@ -121,7 +126,7 @@ int main() {
     int cardY = gridY;
     int selectedX = cardX;
     int selectedY = cardY;
-    int selectedCard = 0;  // Indice de la carte sélectionnée
+    int selectedCard = 0;  // index de la carte sélectionnée
 
     for (int row = 0; row < rows; row++) {
         for (int col = 0; col < cols; col++) {
@@ -129,7 +134,9 @@ int main() {
             wattron(cardWin, COLOR_PAIR(1));  // Activer la couleur jaune
             box(cardWin, 0, 0);
             wattroff(cardWin, COLOR_PAIR(1));  // Désactiver la couleur jaune
-            wrefresh(cardWin);
+            pthread_mutex_lock(&ncurses_mutex);
+    wrefresh(cardWin);
+    pthread_mutex_unlock(&ncurses_mutex);
 
             cardX += cardWidth + horizontalSpacing;
         }
@@ -139,7 +146,7 @@ int main() {
 
     while (1) {
         int ch = getch();
-        // switch de carte 
+        // switch de carte
         WINDOW *previousCard = newwin(cardHeight, cardWidth, selectedY, selectedX);
         wattron(previousCard, COLOR_PAIR(1));  // Activer la couleur jaune
         box(previousCard, 0, 0);
@@ -151,7 +158,10 @@ int main() {
             selectedCard--;
         } else if (ch == 'e' && selectedCard < (rows * cols - 1)) {
             selectedCard++;
-        }
+
+        }else if(ch == 'q') {
+            break;
+            }
 
         // calcul de posiitonnement de carte
         selectedX = gridX + (selectedCard % cols) * (cardWidth + horizontalSpacing);
@@ -164,6 +174,10 @@ int main() {
         attroff(COLOR_PAIR(1));  // Désactiver la couleur jaune
     }
 
+    delwin(mainWin);
+    delwin(timerWin);
+    delwin(textWin);
+    delwin(gridWin);
     getch();
     endwin();
     pthread_cancel(timerThread);
