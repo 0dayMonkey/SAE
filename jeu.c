@@ -1,34 +1,41 @@
-#include <ncurses.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <ncurses.h>
 #include <unistd.h>
+#include <time.h>
 
-typedef struct {
-    int minutes;
-    int seconds;
-    int milliseconds;
-} Timer;
+
 
 void* updateTimer(void* arg) {
-    Timer* timer = (Timer*)arg;
+    WINDOW* timerWin = (WINDOW*)arg;
+    struct timespec start_time, current_time;
+    double chronoactuel = 0;
 
+    // Récupération du temps de départ
+    clock_gettime(CLOCK_MONOTONIC, &start_time);
+
+    // Boucle pour le chronomčtre
     while (1) {
-        usleep(10000);
-        timer->milliseconds += 10;
+        // Récupération du temps actuel
+        clock_gettime(CLOCK_MONOTONIC, &current_time);
 
-        if (timer->milliseconds >= 1000) {
-            timer->milliseconds -= 1000;
-            timer->seconds++;
+        // Calcul du temps écoulé en secondes avec une précision de 0.1 seconde
+        chronoactuel = (double)(current_time.tv_sec - start_time.tv_sec) +
+                       (double)(current_time.tv_nsec - start_time.tv_nsec) / 1e9;
 
-            if (timer->seconds >= 60) {
-                timer->seconds -= 60;
-                timer->minutes++;
-            }
-        }
-    }
+        // Affichage du temps dans la fenętre de droite
+        mvwprintw(timerWin, 1, 1, "Chrono : %.1fs", chronoactuel);
 
-    return NULL;
+        // Rafraîchissement de la fenętre de droite
+        wrefresh(timerWin);
+
+        // Pause de 100 millisecondes
+        usleep(100000);
+    }return NULL;
 }
+
 pthread_mutex_t ncurses_mutex;
 void* updateText(void* arg) {
     WINDOW* mainWin = (WINDOW*)arg;
@@ -98,9 +105,9 @@ int main() {
     box(textWin, 0, 0);
     wrefresh(textWin);
 
-    Timer timer = {0, 0, 0};
+
     pthread_t timerThread, textThread;
-    pthread_create(&timerThread, NULL, updateTimer, &timer);
+    pthread_create(&timerThread, NULL, updateTimer, timerWin);
     pthread_create(&textThread, NULL, updateText, textWin);
 
     /* affichage des cartes (dans un cadrillage 4*3)
