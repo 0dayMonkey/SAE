@@ -1,140 +1,173 @@
-#include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
+#include <ncurses.h>
 #include <unistd.h>
-#include "tools.h"
-#include "jeu.c"
+#include <time.h>
 
-int main() {
-    initscr();
-    noecho();
-    cbreak();
-    curs_set(FALSE);
-    keypad(stdscr, TRUE);
-    mousemask(ALL_MOUSE_EVENTS, NULL);
+void* updateTimer(void* arg) {
+    WINDOW* timerWin = (WINDOW*)arg;
+    struct timespec start_time, current_time;
+    double chronoactuel = 0;
 
-    // Check window size
-    int max_x, max_y;
-    getmaxyx(stdscr, max_y, max_x);
+    // Récupération du temps de départ
+    clock_gettime(CLOCK_MONOTONIC, &start_time);
 
-    if (max_x < 170 || max_y < 60) {
-        endwin();
-        fprintf(stderr, "La taille de la fenetre n'est pas assez consequente. Modifiez les dimensions minimum Ã  170x60.\n");
-        return 1;
+    // Boucle pour le chronomètre
+    while (1) {
+        // Récupération du temps actuel
+        clock_gettime(CLOCK_MONOTONIC, &current_time);
+
+        // Calcul du temps écoulé en secondes avec une précision de 0.1 seconde
+        chronoactuel = (double)(current_time.tv_sec - start_time.tv_sec) +
+                       (double)(current_time.tv_nsec - start_time.tv_nsec) / 1e9;
+
+        // Affichage du temps dans la fenêtre de droite
+        mvwprintw(timerWin, 1, 1, "Chrono : %.1fs", chronoactuel);
+
+        // Rafraîchissement de la fenêtre de droite
+        wrefresh(timerWin);
+
+        // Pause de 100 millisecondes
+        usleep(100000);
     }
+}
 
-    // colors
-    if (has_colors()) {
-        start_color();
-        init_pair(1, COLOR_MAGENTA, COLOR_BLACK);
-        init_pair(2, COLOR_CYAN, COLOR_BLACK);
-    }
-
-    getmaxyx(stdscr, max_y, max_x); // dim
-    int old_max_x = max_x; // old width
-    int old_max_y = max_y; // old height
-
-    char* ascii_art[] = {
-        "   .----------------.  .----------------.  .----------------.  .----------------.  .----------------. ",
-        "  | .--------------. || .--------------. || .--------------. || .--------------. || .--------------. |",
-        "  | |     __       | || |   ______     | || |      __      | || |     _____    | || |  _______     | |",
-        "  | |    /  |      | || |  |_   __ \\   | || |     /  \\     | || |    |_   _|   | || | |_   __ \\    | |",
-        "  | |    `| |      | || |    | |__) |  | || |    / /\\ \\    | || |      | |     | || |   | |__) |   | |",
-        "  | |     | |      | || |    |  ___/   | || |   / ____ \\   | || |      | |     | || |   |  __ /    | |",
-        "  | |    _| |_     | || |   _| |_      | || | _/ /    \\ \\_ | || |     _| |_    | || |  _| |  \\ \\_  | |",
-        "  | |   |_____|    | || |  |_____|     | || ||____|  |____|| || |    |_____|   | || | |____| |___| | |",
-        "  | |              | || |              | || |              | || |              | || |              | |",
-        "  | '--------------' || '--------------' || '--------------' || '--------------' || '--------------' |",
-        "   '----------------'  '----------------'  '----------------'  '----------------'  '----------------' "
-    };
-
-    int art_height = 11;
-    int art_width = strlen(ascii_art[0]);
-
-    int start_x = (max_x - art_width) / 2;
-    int start_y = 10;
-
-    int current_color = 1; // Couleur actuelle
-    int previous_option = -1;
-
-    // options
-    char* menu_options[] = {
-        "1 - Solo",
-        "2 - Autoplay"
-    };
-    int menu_option_colors[] = {1, 1}; // synch color
-
-    int selected_option = 0;
+void* updateText(void* arg) {
+    WINDOW* mainWin = (WINDOW*)arg;
+    char text[] = "Le but du jeu est simple : Trouve un couple de carte le plus rapidement possible ! Fais attention, le temps passe vite chef ! ";
+    int textLength = strlen(text);
+    int winWidth = getmaxx(mainWin);
 
     while (1) {
-        clear();
+        for (int i = 0; i < textLength; i++) {
+            int x, y;
+            getyx(mainWin, y, x);
+            werase(mainWin);
 
-        // border box
-        box(stdscr, 0, 0);
-
-        // adaptive
-        getmaxyx(stdscr, max_y, max_x);
-        if (max_x != old_max_x || max_y != old_max_y) {
-
-            old_max_x = max_x;
-            old_max_y = max_y;
-            start_x = (max_x - art_width) / 2;
-        }
-
-        for (int i = 0; i < 2; i++) {
-            if (i == selected_option) {
-                attron(COLOR_PAIR(current_color));
-                attron(A_BOLD);
+            for (int j = 0; j < winWidth; j++) {
+                int idx = (i + j) % textLength;
+                mvwaddch(mainWin, 2, j + 1, text[(idx + textLength) % textLength]);
             }
-            mvprintw(max_y / 2 - 2 + i, max_x / 2 - strlen(menu_options[i]) / 2, "%s", menu_options[i]);
-            if (i == selected_option) {
-                attroff(A_BOLD);
-                attroff(COLOR_PAIR(current_color));
-            }
-        }
 
-        if (selected_option != previous_option) {
-            // La sÃ©lection a changÃ©, changez la couleur
-            current_color = (current_color % 2) + 1;
-            previous_option = selected_option;
-        }
+            box(mainWin, 0, 0);
+            wrefresh(mainWin);
 
-        attron(COLOR_PAIR((current_color%2)+1));
-        for (int i = 0; i < art_height; i++) {
-            mvprintw(start_y + i, start_x, "%s", ascii_art[i]);
-        }
-        attroff(COLOR_PAIR((current_color%2)+1));
-
-        refresh();
-
-        int ch = getch();
-
-        if (ch == KEY_DOWN || ch == '2' || ch == 's') {
-            selected_option = (selected_option + 1) % 2; // Passe Ã  l'option suivante
-        } else if (ch == KEY_UP || ch == '1' || ch == 'z') {
-            selected_option = (selected_option - 1 + 2) % 2; // Passe Ã  l'option prÃ©cÃ©dente
-        } else if (ch == 10) {
-            initialiserJeu();
-        }
-        else if (ch == KEY_MOUSE) {
-            MEVENT event;
-            if (getmouse(&event) == OK) {
-                // MOUSE_CLICK event
-                if (event.y >= max_y / 2 - 2 && event.y < max_y / 2) {
-                    for (int i = 0; i < 2; i++) {
-                        if (event.y == max_y / 2 - 2 + i) {
-                            selected_option = i;
-                            break;
-                        }
-                    }
-                }
-            }
-        }  else if (ch == 'q') {
-            break; // 'q' exit
+            // Pause de 100 millisecondes
+            usleep(100000);
         }
     }
+}
 
-    endwin(); // End ncurses mode
+int main() {
+    // Initialisation de ncurses
+    initscr();
+    noecho();
+    curs_set(0);
+    start_color();  // Activer la couleur
+    init_pair(1, COLOR_YELLOW, COLOR_BLACK);  // Définir une paire de couleurs (jaune sur fond noir pour l'instant, on change peut etre après)
+
+    int yMax, xMax;
+    getmaxyx(stdscr, yMax, xMax);
+
+    int haut = 30;
+    int large = 50;
+    int mainWinWidth = (xMax / 2) - 3;
+    int mainWinHeight = (yMax / 6) - 2;
+    int mainWinX = 1;
+    int mainWinY = 1;
+    WINDOW *mainWin = newwin(mainWinHeight, mainWinWidth, mainWinY, mainWinX);
+    refresh();
+
+    int timerWinWidth = (xMax / 2) - 3;
+    int timerWinHeight = (yMax / 6) - 2;
+    int timerWinX = xMax - 79;
+    int timerWinY = 1;
+    WINDOW *timerWin = newwin(timerWinHeight, timerWinWidth, timerWinY, timerWinX);
+    box(timerWin, 0, 0);
+    wrefresh(timerWin);
+
+    int textWinWidth = (xMax / 2) - 3;
+    int textWinHeight = (yMax / 6) - 2;
+    int textWinX = 1;
+    int textWinY = 1;
+    WINDOW *textWin = newwin(textWinHeight, textWinWidth, textWinY, textWinX);
+    box(textWin, 0, 0);
+    wrefresh(textWin);
+
+    pthread_t timerThread, textThread;
+    pthread_create(&timerThread, NULL, updateTimer, timerWin);
+    pthread_create(&textThread, NULL, updateText, textWin);
+
+    int rows = 3;
+    int cols = 4;
+
+    int cardWidth = 15;
+    int cardHeight = 10;
+    int horizontalSpacing = 0;
+    int verticalSpacing = 1;
+
+    int gridWidth = (cols * cardWidth);
+    int gridHeight = (rows * cardHeight) + ((rows - 1) * verticalSpacing);
+
+    int gridX = (xMax - gridWidth) / 2;
+    int gridY = 10;
+
+    WINDOW *gridWin = newwin(gridHeight, gridWidth, gridY, gridX);
+    wrefresh(gridWin);
+
+    int cardX = gridX;
+    int cardY = gridY;
+    int selectedX = cardX;
+    int selectedY = cardY;
+    int selectedCard = 0;
+
+    for (int row = 0; row < rows; row++) {
+        for (int col = 0; col < cols; col++) {
+            WINDOW *cardWin = newwin(cardHeight, cardWidth, cardY, cardX);
+            wattron(cardWin, COLOR_PAIR(1));
+            box(cardWin, 0, 0);
+            wattroff(cardWin, COLOR_PAIR(1));
+            wrefresh(cardWin);
+
+            cardX += cardWidth + horizontalSpacing;
+        }
+        cardX = gridX;
+        cardY += cardHeight + verticalSpacing;
+    }
+
+    while (1) {
+        int ch = getch();
+
+        WINDOW *previousCard = newwin(cardHeight, cardWidth, selectedY, selectedX);
+        wattron(previousCard, COLOR_PAIR(1));
+        box(previousCard, 0, 0);
+        wattroff(previousCard, COLOR_PAIR(1));
+        wrefresh(previousCard);
+
+        if (ch == 'a' && selectedCard > 0) {
+            selectedCard--;
+        } else if (ch == 'e' && selectedCard < (rows * cols - 1)) {
+            selectedCard++;
+        }
+
+        selectedX = gridX + (selectedCard % cols) * (cardWidth + horizontalSpacing);
+        selectedY = gridY + (selectedCard / cols) * (cardHeight + verticalSpacing);
+
+        attron(COLOR_PAIR(1));
+        WINDOW *selectedCardWin = newwin(cardHeight, cardWidth, selectedY, selectedX);
+        box(selectedCardWin, 0, 0);
+        wrefresh(selectedCardWin);
+        attroff(COLOR_PAIR(1));
+    }
+
+    getch();
+    endwin();
+    pthread_cancel(timerThread);
+    pthread_cancel(textThread);
+    pthread_join(timerThread, NULL);
+    pthread_join(textThread, NULL);
+
     return 0;
 }
