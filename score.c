@@ -49,11 +49,11 @@ int main() {
     cbreak();
 
     // Création de la fenêtre avec des bordures
-    WINDOW *scoreWindow = newwin(TABLEAU_SCORES_TAILLE + 2, 25, 1, 1);
-    box(scoreWindow, 0, 0);
+    WINDOW *scoreWin = newwin(TABLEAU_SCORES_TAILLE + 2, 25, 1, 1);
+    box(scoreWin, 0, 0);
 
     // Affichage de la fenêtre
-    wrefresh(scoreWindow);
+    wrefresh(scoreWin);
 
     Score meilleursScores[TABLEAU_SCORES_TAILLE];
 
@@ -120,12 +120,12 @@ int main() {
     }
 
     // Affichage des scores dans la fenêtre avec des bordures
-    mvwprintw(scoreWindow, 1, 1, "Meilleurs Scores :");
+    mvwprintw(scoreWin, 1, 1, "Meilleurs Scores :");
     for (int i = 0; i < TABLEAU_SCORES_TAILLE; i++) {
-        mvwprintw(scoreWindow, i + 2, 1, "%d. %4s %.1lf", meilleursScores[i].classement, meilleursScores[i].nom, meilleursScores[i].chrono);
+        mvwprintw(scoreWin, i + 2, 1, "%d. %4s %.1lf", meilleursScores[i].classement, meilleursScores[i].nom, meilleursScores[i].chrono);
     }
 
-    wrefresh(scoreWindow);
+    wrefresh(scoreWin);
 
     getch();
     endwin();
