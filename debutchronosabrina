@@ -46,6 +46,7 @@ int main() {
     initscr();
     noecho();
     curs_set(0);
+    keypad(stdscr, TRUE);    // Activer la saisie des touches
     start_color();  // Activer la couleur
     init_pair(1, COLOR_YELLOW, COLOR_BLACK);  // paire de couleur (jaune sur fond noir pour l'instant, on change peut etre après)
 
@@ -70,6 +71,18 @@ int main() {
     char text[] = "Le but du jeu est simple : Trouve un couple de carte le plus rapidement possible ! Fais attention, le temps passe vite chef ! ";
     int textLength = strlen(text);
     int winWidth = getmaxx(mainWin);
+
+    // Calculer la position de la sous-fenêtre
+    int starty = 7 * (yMax / 8);  // 7/8 de la hauteur de la fenêtre principale
+    int startx = 0;              // Position horizontale de la sous-fenêtre
+
+    // Créer une fenêtre avec bordures
+    WINDOW *scoreWin = newwin(yMax / 6, xMax, starty, startx);
+    box(scoreWin, 0, 0);  // Ajouter les bordures
+
+    // Afficher la fenêtre
+    refresh();
+    wrefresh(scoreWin);
 
     struct timespec start_time, current_time;
     double chronoactuel = 0;
@@ -158,7 +171,7 @@ int main() {
             req.tv_nsec = 100000000;  // 100 millisecondes
             nanosleep(&req, &rem);
         }
-
+        wrefresh(mainWin);
         int ch = getch();
         // switch de carte
         WINDOW *previousCard = newwin(cardHeight, cardWidth, selectedY, selectedX);
@@ -194,6 +207,7 @@ int main() {
     delwin(mainWin);
     delwin(timerWin);
     delwin(gridWin);
+    delwin(scoreWin);
     getch();
     endwin();
 
