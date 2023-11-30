@@ -1,200 +1,232 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <pthread.h>
 #include <ncurses.h>
-#include <unistd.h>
+#include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
+
+#define CARD_WIDTH 15
+#define CARD_HEIGHT 10
+#define PADDING 1
+#define PAIR_COUNT 6
+
+/// mod
+int debug = 0; // 1 = triche et 0 = normal
 
 
 
-void* updateTimer(void* arg) {
-    WINDOW* timerWin = (WINDOW*)arg;
-    struct timespec start_time, current_time;
-    double chronoactuel = 0;
+void draw_card(WINDOW *card_win, int revealed, int value, int matched) {
+    werase(card_win);
+    box(card_win, 0 , 0);
+    if (matched) {
+        wbkgd(card_win, COLOR_PAIR(2));
+        mvwprintw(card_win, CARD_HEIGHT / 2, (CARD_WIDTH - 1) / 2, "%d", value);
+        mvwprintw(card_win, CARD_HEIGHT/CARD_HEIGHT, CARD_WIDTH/CARD_WIDTH , "%s","lock");
 
-    // Récupération du temps de départ
-    clock_gettime(CLOCK_MONOTONIC, &start_time);
-
-    // Boucle pour le chronomčtre
-    while (1) {
-        // Récupération du temps actuel
-        clock_gettime(CLOCK_MONOTONIC, &current_time);
-
-        // Calcul du temps écoulé en secondes avec une précision de 0.1 seconde
-        chronoactuel = (double)(current_time.tv_sec - start_time.tv_sec) +
-                       (double)(current_time.tv_nsec - start_time.tv_nsec) / 1e9;
-
-        // Affichage du temps dans la fenętre de droite
-        mvwprintw(timerWin, 1, 1, "Chrono : %.1fs", chronoactuel);
-
-        // Rafraîchissement de la fenętre de droite
-        wrefresh(timerWin);
-
-        // Pause de 100 millisecondes
-        usleep(100000);
-    }return NULL;
+    }
+    else if (revealed) {
+        wbkgd(card_win, COLOR_PAIR(4));
+        mvwprintw(card_win, CARD_HEIGHT / 2, (CARD_WIDTH - 1) / 2, "%d", value);
+    } else {
+        wbkgd(card_win, COLOR_PAIR(0));
+        mvwprintw(card_win, CARD_HEIGHT / 2, (CARD_WIDTH - 1) / 2, "%s", "?");
+    }
+    wrefresh(card_win);
 }
 
-pthread_mutex_t ncurses_mutex;
-void* updateText(void* arg) {
-    WINDOW* mainWin = (WINDOW*)arg;
-    char text[] = "Le but du jeu est simple : Trouve un couple de carte le plus rapidement possible ! Fais attention, le temps passe vite chef ! ";
-    int textLength = strlen(text);
-    int winWidth = getmaxx(mainWin);
 
-    while (1) {
-        for (int i = 0; i < textLength; i++) {
-            int x, y;
-            getyx(mainWin, y, x);
-            pthread_mutex_lock(&ncurses_mutex);
-    werase(mainWin);
-
-            for (int j = 0; j < winWidth-2; j++) {
-                int idx = (i + j) % textLength;
-                mvwaddch(mainWin, 2, j + 1, text[(idx + textLength) % textLength]);
-            }
-
-            box(mainWin, 0, 0);
-            wrefresh(mainWin);
-    pthread_mutex_unlock(&ncurses_mutex);
-            // utilisation de nanosleep --> plus robuste
-            struct timespec req, rem;
-            req.tv_sec = 0;
-            req.tv_nsec = 300000 * 1000;  // 300000 microS vers nanoS
-            nanosleep(&req, &rem);
+void movecard(int *y, int *x, int selected[3][4], int direction) {
+    do {
+        *x += direction;
+        if (*x > 3) { // Passer à la ligne suivante
+            *x = 0; *y += 1;
+        } else if (*x < 0) { // Remonter à la ligne précédente
+            *x = 3; *y -= 1;
         }
+        if (*y > 2) { // Si on dépasse la dernière ligne, retourner au début
+            *y = 0;
+        } else if (*y < 0) { // Si on dépasse la première ligne, aller à la fin
+            *y = 2;
+        }
+    } while (*y >= 0 && *y < 3 && *x >= 0 && *x < 4 && selected[*y][*x]); // Continuer tant que la carte est sélectionnée
+}
+
+
+void checkend(WINDOW *card_wins[3][4], int selected[3][4]) {
+    int all_matched = 1;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 4; j++) {
+            if (!selected[i][j]) {
+                all_matched = 0;
+                break;
+            }
+        }
+        if (!all_matched) break;
+    }
+
+    if (all_matched) {
+        int max_y, max_x;
+        getmaxyx(stdscr, max_y, max_x);
+        clear();
+        mvprintw((max_y / 2), (max_x - 2) / 2, "Gestion des scores ici"); /// remplacer par les scores
+        refresh();
+        usleep(3000000);
+        endwin();
+        exit(0);
     }
 }
 
 
+int jeu() {
+    WINDOW *card_wins[3][4];
+    int card_values[3][4];
+    int revealed[3][4] = {{0}};
+    int selected[3][4] = {{0}};
+    int start_y, start_x;
+    int ch;
+    int current_y = 0, current_x = 0;
+    int first_pick_y = -1, first_pick_x = -1;
+    int second_pick_y = -1, second_pick_x = -1;
 
-int main() {
-    pthread_mutex_init(&ncurses_mutex, NULL);
     initscr();
+    start_color();
+    init_pair(1, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(2, COLOR_CYAN, COLOR_BLACK);
+    init_pair(3, COLOR_WHITE, COLOR_BLACK);
+    init_pair(4, COLOR_BLACK, COLOR_WHITE);
+    cbreak();
     noecho();
+    keypad(stdscr, TRUE);
     curs_set(0);
-    start_color();  // Activer la couleur
-    init_pair(1, COLOR_YELLOW, COLOR_BLACK);  // paire de couleur (jaune sur fond noir pour l'instant, on change peut etre après)
-
-    int yMax, xMax;
-    getmaxyx(stdscr, yMax, xMax);
-
-    int haut = 30;
-    int large = 50;
-    int mainWinWidth = (xMax / 2)-3;
-    int mainWinHeight = (yMax/6)-2;
-    int mainWinX = 1;
-    int mainWinY = 1;
-    WINDOW *mainWin = newwin(mainWinHeight, mainWinWidth, mainWinY, mainWinX);
-    refresh();
-
-    int timerWinWidth = (xMax / 2)-3 ;
-    int timerWinHeight = (yMax/6)-2;
-    int timerWinX = xMax - 79;
-    int timerWinY = 1;
-    WINDOW *timerWin = newwin(timerWinHeight, timerWinWidth, timerWinY, timerWinX);
-    box(timerWin, 0, 0);
-    wrefresh(timerWin);
-
-    int textWinWidth = (xMax / 2)-3 ;
-    int textWinHeight = (yMax/6)-2;
-    int textWinX = 1;
-    int textWinY = 1;
-    WINDOW *textWin = newwin(textWinHeight, textWinWidth, textWinY, textWinX);
-    box(textWin, 0, 0);
-    wrefresh(textWin);
+    srand(time(NULL));
 
 
-    pthread_t timerThread, textThread;
-    pthread_create(&timerThread, NULL, updateTimer, timerWin);
-    pthread_create(&textThread, NULL, updateText, textWin);
-
-    /* affichage des cartes (dans un cadrillage 4*3)
-    faut archi pas toucher a ça sinon ça part en couille les chefs*/
-
-    int rows = 3;
-    int cols = 4;
-
-    // taille de la carte
-    int cardWidth = 15;
-    int cardHeight = 10;
-    // espacement de la grille
-    int horizontalSpacing = 0;
-    int verticalSpacing = 1;
-
-    int gridWidth = (cols * cardWidth);
-    int gridHeight = (rows * cardHeight) + ((rows - 1) * verticalSpacing);
-
-    int gridX = (xMax - gridWidth) / 2;
-    int gridY = 10;
-
-    // Créer la fenêtre de la grille
-    WINDOW *gridWin = newwin(gridHeight, gridWidth, gridY, gridX);
-    wrefresh(gridWin);
-
-    int cardX = gridX;
-    int cardY = gridY;
-    int selectedX = cardX;
-    int selectedY = cardY;
-    int selectedCard = 0;  // index de la carte sélectionnée
-
-    for (int row = 0; row < rows; row++) {
-        for (int col = 0; col < cols; col++) {
-            WINDOW *cardWin = newwin(cardHeight, cardWidth, cardY, cardX);
-            wattron(cardWin, COLOR_PAIR(1));  // Activer la couleur jaune
-            box(cardWin, 0, 0);
-            wattroff(cardWin, COLOR_PAIR(1));  // Désactiver la couleur jaune
-            pthread_mutex_lock(&ncurses_mutex);
-    wrefresh(cardWin);
-    pthread_mutex_unlock(&ncurses_mutex);
-
-            cardX += cardWidth + horizontalSpacing;
-        }
-        cardX = gridX;
-        cardY += cardHeight + verticalSpacing;
+    // Initialisation des valeurs des cartes
+    int values[PAIR_COUNT * 2];
+    for (int i = 0; i < PAIR_COUNT; ++i) {
+        values[i * 2] = values[i * 2 + 1] = i + 1;
+    }
+    for (int i = 0; i < PAIR_COUNT * 2; ++i) {
+        int r = rand() % (PAIR_COUNT * 2);
+        int temp = values[i];
+        values[i] = values[r];
+        values[r] = temp;
     }
 
-    while (1) {
-        int ch = getch();
-        // switch de carte
-        WINDOW *previousCard = newwin(cardHeight, cardWidth, selectedY, selectedX);
-        wattron(previousCard, COLOR_PAIR(1));  // Activer la couleur jaune
-        box(previousCard, 0, 0);
-        wattroff(previousCard, COLOR_PAIR(1));  // Désactiver la couleur jaune
-        wrefresh(previousCard);
+    int max_y, max_x; // stocker les dimensions de l'écran
+    getmaxyx(stdscr, max_y, max_x); // dimensions de l'écran
 
-        // gestion des inputs
-        if (ch == 'a' && selectedCard > 0) {
-            selectedCard--;
-        } else if (ch == 'e' && selectedCard < (rows * cols - 1)) {
-            selectedCard++;
 
-        }else if(ch == 'q') {
-            break;
+    // Calculer le point de départ pour centrer les cartes
+    int total_cards_width = (CARD_WIDTH + PADDING) * 4 - PADDING;
+    int total_cards_height = (CARD_HEIGHT + PADDING) * 3 - PADDING;
+    start_y = (max_y - total_cards_height) / 2;
+    start_x = (max_x - total_cards_width) / 2;
+
+    // positionner les cartes
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 4; j++) {
+            card_wins[i][j] = newwin(CARD_HEIGHT, CARD_WIDTH, start_y + i * (CARD_HEIGHT + PADDING), start_x + j * (CARD_WIDTH + PADDING));
+            if (i == 0 && j == 0) {
+                        // highlight la premiere carte ( au demarage du jeu )
+                        wattron(card_wins[i][j], COLOR_PAIR(1));
+                        draw_card(card_wins[i][j], revealed[i][j], ' ', debug);
+                        wattroff(card_wins[i][j], COLOR_PAIR(1));
+                    } else {
+                        draw_card(card_wins[i][j], revealed[i][j], ' ', debug);
+                    }
+                }
             }
 
-        // calcul de posiitonnement de carte
-        selectedX = gridX + (selectedCard % cols) * (cardWidth + horizontalSpacing);
-        selectedY = gridY + (selectedCard / cols) * (cardHeight + verticalSpacing);
-
-        attron(COLOR_PAIR(1));  // Activer la couleur jaune
-        WINDOW *selectedCardWin = newwin(cardHeight, cardWidth, selectedY, selectedX);
-        box(selectedCardWin, 0, 0);
-        wrefresh(selectedCardWin);
-        attroff(COLOR_PAIR(1));  // Désactiver la couleur jaune
+    // donner les valeurs mélangées aux cartes
+    for (int i = 0, k = 0; i < 3; i++) {
+        for (int j = 0; j < 4; j++, k++) {
+            card_values[i][j] = values[k];
+            card_wins[i][j] = newwin(CARD_HEIGHT, CARD_WIDTH, start_y + (CARD_HEIGHT + PADDING) * i, start_x + (CARD_WIDTH + PADDING) * j);
+        }
     }
 
-    delwin(mainWin);
-    delwin(timerWin);
-    delwin(textWin);
-    delwin(gridWin);
-    getch();
+
+    /// A REGLER : probleme lorsqu'on veux passer de la premiere a la derniere carte ( on ne saute plus de carte )
+    // Boucle principale
+    while ((ch = getch()) != 'q') {
+
+        switch (ch) {
+            case 'a':
+                if (current_x==first_pick_x+1 && current_y==first_pick_y){
+                    movecard(&current_y, &current_x, selected, -1);
+                }
+                movecard(&current_y, &current_x, selected, -1);
+                break;
+            case 'e':
+                if (current_x==first_pick_x-1 && current_y==first_pick_y){
+                    movecard(&current_y, &current_x, selected, 1);
+                }
+                movecard(&current_y, &current_x, selected, 1);
+                break;
+            case '\n':
+                if (revealed[current_y][current_x] == 0) {
+                    // si aucune carte n'est actuellement sélectionnée
+                    if (first_pick_y == -1) {
+                        first_pick_y = current_y;
+                        first_pick_x = current_x;
+                        revealed[current_y][current_x] = 1;
+                        movecard(&current_y, &current_x, selected, 1);
+                    } else if (!(current_y == first_pick_y && current_x == first_pick_x)) {
+                        second_pick_y = current_y;
+                        second_pick_x = current_x;
+                        revealed[current_y][current_x] = 1;
+                        draw_card(card_wins[current_y][current_x], revealed[current_y][current_x], card_values[current_y][current_x],debug);
+                        //  comparaison
+                        if (card_values[first_pick_y][first_pick_x] == card_values[second_pick_y][second_pick_x]) {
+                                // cartes sont egales
+                                selected[first_pick_y][first_pick_x] = 1;
+                                selected[second_pick_y][second_pick_x] = 1;
+                                revealed[first_pick_y][first_pick_x] = 1;
+                                revealed[second_pick_y][second_pick_x] = 1;
+                                // peut-être ajouter un refresh ici
+                                wrefresh(card_wins[first_pick_y][first_pick_x]);
+                                wrefresh(card_wins[second_pick_y][second_pick_x]);
+                                checkend(card_wins, selected);
+                                usleep(1000000);
+                                movecard(&current_y, &current_x, selected, 1);
+
+                        } else {
+                            // pas de correspondance on retourne les cartes apre 1s
+                            usleep(1000000);
+                            revealed[first_pick_y][first_pick_x] = 0;
+                            revealed[second_pick_y][second_pick_x] = 0;
+
+
+
+
+                        }
+                        first_pick_y = -1;
+                        first_pick_x = -1;
+                        second_pick_y = -1;
+                        second_pick_x = -1;
+                    }
+                }
+                break;
+        }
+
+        // refresh les cartes
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 4; j++) {
+                int is_matched = selected[i][j];
+                draw_card(card_wins[i][j], revealed[i][j], card_values[i][j], is_matched);
+            }
+        }
+
+
+
+        // highlight
+        if (!selected[current_y][current_x]) {
+            wattron(card_wins[current_y][current_x], COLOR_PAIR(1));
+            draw_card(card_wins[current_y][current_x], revealed[current_y][current_x], card_values[current_y][current_x],debug);
+            wattroff(card_wins[current_y][current_x], COLOR_PAIR(1));
+        }
+    }
+
     endwin();
-    pthread_cancel(timerThread);
-    pthread_cancel(textThread);
-    pthread_join(timerThread, NULL);
-    pthread_join(textThread, NULL);
 
     return 0;
 }
