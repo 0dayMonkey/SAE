@@ -176,7 +176,8 @@ void gere_score(double elapsed, WINDOW *scoreWin) {
 
     if (elapsed < meilleursScores[TABLEAU_SCORES_TAILLE - 1].chrono) {
         char nomJoueur[5];
-        printw("Bravo, vous avez battu un meilleur chrono ! Entrez votre nom (4 caractères SEULEMENT!) : ");
+        mvwprintw(scoreWin, 1, 1,"Bravo, vous avez battu un meilleur chrono ! Entrez votre nom (4 caractères SEULEMENT!) : " ,"Bravo, vous avez battu un meilleur chrono ! Entrez votre nom (4 caractères SEULEMENT!) : ");
+
         refresh();
         getnstr(nomJoueur, 4);
 
