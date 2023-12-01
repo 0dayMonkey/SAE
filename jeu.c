@@ -11,6 +11,8 @@
 /// mod
 int debug = 0; // 1 = triche et 0 = normal
 
+time_t start_time, current_time;
+
 
 
 void draw_card(WINDOW *card_win, int revealed, int value, int matched) {
@@ -84,27 +86,26 @@ void checkend(WINDOW *card_wins[3][4], int selected[3][4]) {
 }
 
 void create_welcome_box() {
-    int max_y, max_x; // stocker les dimensions de l'écran
-    getmaxyx(stdscr, max_y, max_x); // dimensions de l'écran
+    int max_y, max_x;
+    getmaxyx(stdscr, max_y, max_x);
     int height = max_y/10;
     int width = max_x/2;
     int start_y = 0; // En haut
-    int start_x = 0; // À gauche
+    int start_x = 0; // a gauche
 
     WINDOW *welcome_win = newwin(height, width, start_y, start_x);
-    box(welcome_win, 0, 0); // Crée un cadre autour de la fenêtre
+    box(welcome_win, 0, 0);
 
-    // Ajouter un message de bienvenue
     mvwprintw(welcome_win, 1, (width - strlen("Bienvenue dans le jeu de memo ! Choisis rapidement, le temps passe vite !")) / 2, "Bienvenue dans le jeu de memo ! Choisis rapidement, le temps passe vite !");
 
-    wrefresh(welcome_win); // Actualiser la fenêtre pour afficher le cadre et le texte
+    wrefresh(welcome_win);
 }
 
 
-// Appeler cette fonction dans votre fonction principale (par exemple, au début de jeu())
 
 
 int jeu() {
+    time(&start_time);
     WINDOW *card_wins[3][4];
     int card_values[3][4];
     int revealed[3][4] = {{0}};
@@ -127,6 +128,7 @@ int jeu() {
     curs_set(0);
     srand(time(NULL));
     create_welcome_box();
+    halfdelay(10);
 
 
     // Initialisation des valeurs des cartes
@@ -175,10 +177,23 @@ int jeu() {
     }
 
 
-    /// A REGLER : probleme lorsqu'on veux passer de la premiere a la derniere carte ( on ne saute plus de carte )
+    /// A REGLER : probleme lorsqu'on veux passer de la premiere a la derniere carte ( on ne saute plus de carte, la selection va sur une carte deja selectionnée )
     // Boucle principale
     while ((ch = getch()) != 'q') {
+        time(&current_time);
+        int elapsed = difftime(current_time, start_time);
+        /// TODO : afficher le chrono dès le lancement du jeu et verifier si il y a pas moyen de faire en sorte que le halfdelay arrete de faire clignoter la selection
+        // Affichage du chronomètre
+        int timer_width = max_x/2;
+        int timer_height = max_y/10;
+        int timer_start_y = 0;
+        int timer_start_x = max_x - timer_width;
 
+        WINDOW *timer_win = newwin(timer_height, timer_width, timer_start_y, timer_start_x);
+        werase(timer_win);
+        box(timer_win, 0, 0);
+        mvwprintw(timer_win, 1, 1, "Temps: %d s", elapsed);
+        wrefresh(timer_win);
         switch (ch) {
             case 'a':
                 if (current_x==first_pick_x+1 && current_y==first_pick_y){
@@ -254,7 +269,9 @@ int jeu() {
             draw_card(card_wins[current_y][current_x], revealed[current_y][current_x], card_values[current_y][current_x],debug);
             wattroff(card_wins[current_y][current_x], COLOR_PAIR(1));
         }
+        delwin(timer_win);
     }
+
 
     endwin();
 
