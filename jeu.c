@@ -34,20 +34,28 @@ void draw_card(WINDOW *card_win, int revealed, int value, int matched) {
 
 
 void movecard(int *y, int *x, int selected[3][4], int direction) {
+    int moved = 0;
     do {
         *x += direction;
         if (*x > 3) { // Passer à la ligne suivante
-            *x = 0; *y += 1;
+            *x = 0;
+            *y += 1;
+            if (*y > 2) { // Si on dépasse la dernière ligne, retourner au début
+                *y = 0;
+            }
         } else if (*x < 0) { // Remonter à la ligne précédente
-            *x = 3; *y -= 1;
+            *x = 3;
+            *y -= 1;
+            if (*y < 0) { // Si on dépasse la première ligne, aller à la fin
+                *y = 2;
+            }
         }
-        if (*y > 2) { // Si on dépasse la dernière ligne, retourner au début
-            *y = 0;
-        } else if (*y < 0) { // Si on dépasse la première ligne, aller à la fin
-            *y = 2;
-        }
-    } while (*y >= 0 && *y < 3 && *x >= 0 && *x < 4 && selected[*y][*x]); // Continuer tant que la carte est sélectionnée
+        moved = 1;
+    } while (selected[*y][*x] && moved); // Continuer tant que la carte est sélectionnée
 }
+
+
+
 
 
 void checkend(WINDOW *card_wins[3][4], int selected[3][4]) {
@@ -63,6 +71,7 @@ void checkend(WINDOW *card_wins[3][4], int selected[3][4]) {
     }
 
     if (all_matched) {
+        usleep(2000000);
         int max_y, max_x;
         getmaxyx(stdscr, max_y, max_x);
         clear();
@@ -73,6 +82,26 @@ void checkend(WINDOW *card_wins[3][4], int selected[3][4]) {
         exit(0);
     }
 }
+
+void create_welcome_box() {
+    int max_y, max_x; // stocker les dimensions de l'écran
+    getmaxyx(stdscr, max_y, max_x); // dimensions de l'écran
+    int height = max_y/10;
+    int width = max_x/2;
+    int start_y = 0; // En haut
+    int start_x = 0; // À gauche
+
+    WINDOW *welcome_win = newwin(height, width, start_y, start_x);
+    box(welcome_win, 0, 0); // Crée un cadre autour de la fenêtre
+
+    // Ajouter un message de bienvenue
+    mvwprintw(welcome_win, 1, (width - strlen("Bienvenue dans le jeu de memo ! Choisis rapidement, le temps passe vite !")) / 2, "Bienvenue dans le jeu de memo ! Choisis rapidement, le temps passe vite !");
+
+    wrefresh(welcome_win); // Actualiser la fenêtre pour afficher le cadre et le texte
+}
+
+
+// Appeler cette fonction dans votre fonction principale (par exemple, au début de jeu())
 
 
 int jeu() {
@@ -97,6 +126,7 @@ int jeu() {
     keypad(stdscr, TRUE);
     curs_set(0);
     srand(time(NULL));
+    create_welcome_box();
 
 
     // Initialisation des valeurs des cartes
