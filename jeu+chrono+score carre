@@ -144,9 +144,9 @@ void gere_score(double elapsed, WINDOW *scoreWin) {
     FILE *fichier = fopen(FICHIER_SCORES, "r");
 
     if (!fichier) {
-        printw("Le fichier de scores n'existe pas. Création du fichier...\n");
+        /*printw("Le fichier de scores n'existe pas. Création du fichier...\n");
         refresh();
-        getch();
+        getch();*/
 
         // Initialiser les meilleurs scores avec des valeurs par défaut
         initialiserMeilleursScores(meilleursScores, TABLEAU_SCORES_TAILLE);
@@ -176,7 +176,7 @@ void gere_score(double elapsed, WINDOW *scoreWin) {
 
     if (elapsed < meilleursScores[TABLEAU_SCORES_TAILLE - 1].chrono) {
         char nomJoueur[5];
-        mvwprintw(scoreWin, 1, 1,"Bravo, vous avez battu un meilleur chrono ! Entrez votre nom (4 caractères SEULEMENT!) :");
+        mvwprintw(scoreWin, 1, 1,"Bravo, vous faites partie des 3 meilleurs joueurs ! Entrez votre nom (4 caractères SEULEMENT!) :");
         wrefresh(scoreWin);
         getnstr(nomJoueur, 4);
 
