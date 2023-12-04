@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+#include <time.h>
 
 #define CARD_WIDTH 15
 #define CARD_HEIGHT 10
@@ -10,8 +11,6 @@
 
 /// mod
 int debug = 0; // 1 = triche et 0 = normal
-
-time_t start_time, current_time;
 
 
 
@@ -85,7 +84,7 @@ void checkend(WINDOW *card_wins[3][4], int selected[3][4]) {
     }
 }
 
-void create_welcome_box() {
+void TextBox() {
     int max_y, max_x;
     getmaxyx(stdscr, max_y, max_x);
     int height = max_y/10;
@@ -103,9 +102,21 @@ void create_welcome_box() {
 
 
 
+void SelectionRandom(int *current_y, int *current_x, int selected[3][4]) {
+    int random_move = rand() % 12 + 1;
+    for (int i = 0; i < random_move; i++) {
+        movecard(current_y, current_x, selected, 1);
+    }
+    ungetch('\n');
 
-int jeu() {
-    time(&start_time);
+
+}
+
+
+
+
+
+int jeu(int autom) {
     WINDOW *card_wins[3][4];
     int card_values[3][4];
     int revealed[3][4] = {{0}};
@@ -127,7 +138,7 @@ int jeu() {
     keypad(stdscr, TRUE);
     curs_set(0);
     srand(time(NULL));
-    create_welcome_box();
+    TextBox();
     halfdelay(10);
 
 
@@ -179,21 +190,18 @@ int jeu() {
 
     /// A REGLER : probleme lorsqu'on veux passer de la premiere a la derniere carte ( on ne saute plus de carte, la selection va sur une carte deja selectionnée )
     // Boucle principale
-    while ((ch = getch()) != 'q') {
-        time(&current_time);
-        int elapsed = difftime(current_time, start_time);
-        /// TODO : afficher le chrono dès le lancement du jeu et verifier si il y a pas moyen de faire en sorte que le halfdelay arrete de faire clignoter la selection
-        // Affichage du chronomètre
-        int timer_width = max_x/2;
-        int timer_height = max_y/10;
-        int timer_start_y = 0;
-        int timer_start_x = max_x - timer_width;
 
-        WINDOW *timer_win = newwin(timer_height, timer_width, timer_start_y, timer_start_x);
-        werase(timer_win);
-        box(timer_win, 0, 0);
-        mvwprintw(timer_win, 1, 1, "Temps: %d s", elapsed);
-        wrefresh(timer_win);
+    while ((ch = getch()) != 'q') {
+        /// TODO : afficher le chrono dès le lancement du jeu et verifier si il y a pas moyen de faire en sorte que le halfdelay arrete de faire clignoter la selection
+        /*
+        TIMER EN RECONSTRUCTION
+        */
+
+
+        if(autom == 1){
+            SelectionRandom(&current_y, &current_x, selected);
+            usleep(1000000);
+        }
         switch (ch) {
             case 'a':
                 if (current_x==first_pick_x+1 && current_y==first_pick_y){
@@ -244,6 +252,7 @@ int jeu() {
 
 
                         }
+
                         first_pick_y = -1;
                         first_pick_x = -1;
                         second_pick_y = -1;
@@ -251,7 +260,9 @@ int jeu() {
                     }
                 }
                 break;
-        }
+}
+
+
 
         // refresh les cartes
         for (int i = 0; i < 3; i++) {
@@ -269,7 +280,6 @@ int jeu() {
             draw_card(card_wins[current_y][current_x], revealed[current_y][current_x], card_values[current_y][current_x],debug);
             wattroff(card_wins[current_y][current_x], COLOR_PAIR(1));
         }
-        delwin(timer_win);
     }
 
 

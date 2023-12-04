@@ -77,11 +77,14 @@ int main() {
                     sleep(1);
                     clear();
                     refresh();
-                    jeu();
+                    jeu(0);
                 } else if (highlight == 1) {
                     mvprintw(ligne / 2 + 2, (colonne - strlen("Auto option chosen")) / 2, "Auto option chosen");
                     refresh();
                     sleep(1);
+                    clear();
+                    refresh();
+                    jeu(1);
                 }
                 break;
         }
@@ -90,3 +93,4 @@ int main() {
     endwin();
     return 0;
 }
+
