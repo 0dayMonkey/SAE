@@ -163,7 +163,7 @@ void gere_score(double elapsed, WINDOW *scoreWin) {
         // Charger les meilleurs scores depuis le fichier
         for (int i = 0; i < TABLEAU_SCORES_TAILLE; i++) {
             if (fscanf(fichier, "%d %4s %lf\n", &meilleursScores[i].classement, meilleursScores[i].nom, &meilleursScores[i].chrono) != 3) {
-                printw("Erreur de lecture du fichier de scores.\n");
+                //printw("Erreur de lecture du fichier de scores.\n");
                 refresh();
                 getch();
                 fclose(fichier);
@@ -176,9 +176,8 @@ void gere_score(double elapsed, WINDOW *scoreWin) {
 
     if (elapsed < meilleursScores[TABLEAU_SCORES_TAILLE - 1].chrono) {
         char nomJoueur[5];
-        mvwprintw(scoreWin, 1, 1,"Bravo, vous avez battu un meilleur chrono ! Entrez votre nom (4 caractères SEULEMENT!) : " ,"Bravo, vous avez battu un meilleur chrono ! Entrez votre nom (4 caractères SEULEMENT!) : ");
-
-        refresh();
+        mvwprintw(scoreWin, 1, 1,"Bravo, vous avez battu un meilleur chrono ! Entrez votre nom (4 caractères SEULEMENT!) :");
+        wrefresh(scoreWin);
         getnstr(nomJoueur, 4);
 
         // Remplacer le dernier score du tableau
@@ -212,7 +211,7 @@ void gere_score(double elapsed, WINDOW *scoreWin) {
     getch();
 }
 
-
+void gere_score(double elapsed, WINDOW *scoreWin);
 
 int jeu() {
     time(&start_time);
@@ -359,8 +358,10 @@ int jeu() {
                         first_pick_x = -1;
                         second_pick_y = -1;
                         second_pick_x = -1;
+
                     }
                 }
+                break;
             case 'q':
                 // Calculer la position de la sous-fenêtre
                 int starty = 7 * (max_y / 8);  // 7/8 de la hauteur de la fenêtre principale
@@ -378,6 +379,9 @@ int jeu() {
                 sleep(10000);
                 break;
                 delwin(scoreWin);
+
+            default:
+                break;
 
         }
 
