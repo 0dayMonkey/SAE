@@ -61,9 +61,10 @@ void movecard(int *y, int *x, int selected[3][4], int direction) {
 
 
 
+void gere_score(double elapsed, WINDOW *scoreWin);// gere et affiche les score quand toutes les cartes sont retournees
 
 
-void checkend(WINDOW *card_wins[3][4], int selected[3][4]) {
+void checkend(WINDOW *card_wins[3][4], int selected[3][4],double elapsed) {
     int all_matched = 1;
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 4; j++) {
@@ -79,8 +80,14 @@ void checkend(WINDOW *card_wins[3][4], int selected[3][4]) {
         usleep(2000000);
         int max_y, max_x;
         getmaxyx(stdscr, max_y, max_x);
-        clear();
-        mvprintw((max_y / 2), (max_x - 2) / 2, "Gestion des scores ici"); /// remplacer par les scores
+        int starty = 7 * (max_y / 8);  // 7/8 de la hauteur de la fenêtre principale
+        int startx = 0;              // Position horizontale de la sous-fenêtre
+
+                // Créer une fenêtre avec bordures
+        WINDOW *scoreWin = newwin(max_y / 6, max_x, starty, startx);
+        box(scoreWin, 0, 0);
+        double elapsed_from_jeu= elapsed;
+        gere_score(elapsed_from_jeu,scoreWin);
         refresh();
         usleep(3000000);
         endwin();
@@ -136,6 +143,37 @@ void initialiserMeilleursScores(Score scores[], int n) {
         scores[i].chrono = 999.9;
     }
 }
+void no_gere_score(double elapsed, WINDOW *scoreWin) {
+    Score meilleursScores[TABLEAU_SCORES_TAILLE];
+
+    // Ouvrir le fichier en mode lecture
+    FILE *fichier = fopen(FICHIER_SCORES, "r");
+
+    if (!fichier) {
+        // Le fichier de scores n'existe pas, initialiser avec des valeurs par défaut
+        initialiserMeilleursScores(meilleursScores, TABLEAU_SCORES_TAILLE);
+    } else {
+        // Charger les meilleurs scores depuis le fichier
+        for (int i = 0; i < TABLEAU_SCORES_TAILLE; i++) {
+            if (fscanf(fichier, "%d %4s %lf\n", &meilleursScores[i].classement, meilleursScores[i].nom, &meilleursScores[i].chrono) != 3) {
+                // Gérer l'erreur de lecture du fichier de scores si nécessaire
+                fclose(fichier);
+                return;
+            }
+        }
+        fclose(fichier);
+    }
+
+    // Affichage des scores dans la fenêtre avec des bordures
+    mvwprintw(scoreWin, 1, 1, "Meilleurs Scores :");
+    for (int i = 0; i < TABLEAU_SCORES_TAILLE; i++) {
+        mvwprintw(scoreWin, i + 2, 1, "%d. %4s %.1lf", meilleursScores[i].classement, meilleursScores[i].nom, meilleursScores[i].chrono);
+    }
+
+    wrefresh(scoreWin);
+    getch();
+}
+
 
 void gere_score(double elapsed, WINDOW *scoreWin) {
     Score meilleursScores[TABLEAU_SCORES_TAILLE];
@@ -176,9 +214,9 @@ void gere_score(double elapsed, WINDOW *scoreWin) {
 
     if (elapsed < meilleursScores[TABLEAU_SCORES_TAILLE - 1].chrono) {
         char nomJoueur[5];
-        mvwprintw(scoreWin, 1, 1,"Bravo, vous faites partie des 3 meilleurs joueurs ! Entrez votre nom (4 caractères SEULEMENT!) :");
+        mvwprintw(scoreWin, 1, 1, "Bravo, vous faites partie des 3 meilleurs joueurs ! Entrez votre nom (4 caractères SEULEMENT!) :");
         wrefresh(scoreWin);
-        getnstr(nomJoueur, 4);
+
 
         // Remplacer le dernier score du tableau
         meilleursScores[TABLEAU_SCORES_TAILLE - 1].classement = 0;
@@ -211,7 +249,7 @@ void gere_score(double elapsed, WINDOW *scoreWin) {
     getch();
 }
 
-void gere_score(double elapsed, WINDOW *scoreWin);
+void no_gere_score(double elapsed, WINDOW *scoreWin); // affiche seulement les anciens score quand q
 
 int jeu() {
     time(&start_time);
@@ -340,7 +378,7 @@ int jeu() {
                                 // peut-être ajouter un refresh ici
                                 wrefresh(card_wins[first_pick_y][first_pick_x]);
                                 wrefresh(card_wins[second_pick_y][second_pick_x]);
-                                checkend(card_wins, selected);
+                                checkend(card_wins, selected,elapsed);
                                 usleep(1000000);
                                 movecard(&current_y, &current_x, selected, 1);
 
@@ -372,7 +410,7 @@ int jeu() {
                 box(scoreWin, 0, 0);  // Ajouter les bordures
 
                 // Appeler la fonction gere_score avec la fenêtre scoreWin
-                gere_score(elapsed, scoreWin);
+                no_gere_score(elapsed, scoreWin);
 
                 // Afficher la fenêtre
                 wrefresh(scoreWin);
