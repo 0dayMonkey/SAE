@@ -231,6 +231,7 @@ int jeu(int autom) {
                         wattroff(card_wins[i][j], COLOR_PAIR(1));
                     } else {
                         draw_card(card_wins[i][j], revealed[i][j], ' ', debug);
+                        doupdate();
                     }
                 }
             }
@@ -255,7 +256,7 @@ int jeu(int autom) {
         checkWindowSize();
 
         attron(COLOR_PAIR(1));
-        mvprintw(max_y/5, max_x/2,"Chrono: %.1f", chrono(debut));
+        mvprintw(max_y/5, (max_x/2)-strlen(strchrono),"Chrono: %.1f", chrono(debut));
         attroff(COLOR_PAIR(2));
         refresh();
 
@@ -288,6 +289,7 @@ int jeu(int autom) {
                         second_pick_x = current_x;
                         revealed[current_y][current_x] = 1;
                         draw_card(card_wins[current_y][current_x], revealed[current_y][current_x], card_values[current_y][current_x],debug);
+                        doupdate();
                         //  comparaison
                         if (card_values[first_pick_y][first_pick_x] == card_values[second_pick_y][second_pick_x]) {
                                 // cartes sont egales
@@ -321,7 +323,6 @@ int jeu(int autom) {
                 }
                 break;
 }
-
 
 
         // refresh les cartes
