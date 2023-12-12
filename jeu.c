@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <time.h>
 
+
 #define CARD_WIDTH 15
 #define CARD_HEIGHT 10
 #define PADDING 1
@@ -30,35 +31,65 @@ void draw_card(WINDOW *card_win, int revealed, int value, int matched) {
         wbkgd(card_win, COLOR_PAIR(0));
         mvwprintw(card_win, CARD_HEIGHT / 2, (CARD_WIDTH - 1) / 2, "%s", "?");
     }
-    wrefresh(card_win);
+    wnoutrefresh(card_win);
 }
 
 
-void movecard(int *y, int *x, int selected[3][4], int direction) {
-    int moved = 0;
-    do {
+float chrono(clock_t debut) {
+    clock_t now = clock();
+    float sec = (float)(now - debut) / 1000000;
+    return sec;
+}
+
+void movecard(int *y, int *x, int direction, int selected[3][4], int first_pick_y, int first_pick_x) {
+    int original_y = *y;
+    int original_x = *x;
+
+    *x += direction;
+
+     if (*x > 3) {
+        *x = 0;
+        *y += 1;
+    } else if (*x < 0) {
+        *x = 3;
+        *y -= 1;
+    }
+
+     if (*y > 2) {
+        *y = 0;
+    } else if (*y < 0) {
+        *y = 2;
+    }
+
+     if ((*y == first_pick_y && *x == first_pick_x) || selected[*y][*x]) {
         *x += direction;
-        if (*x > 3) { // Passer à la ligne suivante
-            *x = 0;
-            *y += 1;
-            if (*y > 2) { // Si on dépasse la dernière ligne, retourner au début
-                *y = 0;
-            }
-        } else if (*x < 0) { // Remonter à la ligne précédente
-            *x = 3;
-            *y -= 1;
-            if (*y < 0) { // Si on dépasse la première ligne, aller à la fin
-                *y = 2;
-            }
-        }
-        moved = 1;
-    } while (selected[*y][*x] && moved); // Continuer tant que la carte est sélectionnée
+    }
+
+     if (*x > 3) {
+        *x = 0;
+        *y += 1;
+    } else if (*x < 0) {
+        *x = 3;
+        *y -= 1;
+    }
+
+     if (*y > 2) {
+        *y = 0;
+    } else if (*y < 0) {
+        *y = 2;
+    }
+
 }
 
 
 
 
 
+
+
+
+
+int fin = 0;
 void checkend(WINDOW *card_wins[3][4], int selected[3][4]) {
     int all_matched = 1;
     for (int i = 0; i < 3; i++) {
@@ -72,6 +103,7 @@ void checkend(WINDOW *card_wins[3][4], int selected[3][4]) {
     }
 
     if (all_matched) {
+        fin = 1;
         usleep(2000000);
         int max_y, max_x;
         getmaxyx(stdscr, max_y, max_x);
@@ -88,29 +120,49 @@ void TextBox() {
     int max_y, max_x;
     getmaxyx(stdscr, max_y, max_x);
     int height = max_y/10;
-    int width = max_x/2;
+    int width = max_x;
     int start_y = 0; // En haut
     int start_x = 0; // a gauche
 
     WINDOW *welcome_win = newwin(height, width, start_y, start_x);
     box(welcome_win, 0, 0);
 
-    mvwprintw(welcome_win, 1, (width - strlen("Bienvenue dans le jeu de memo ! Choisis rapidement, le temps passe vite !")) / 2, "Bienvenue dans le jeu de memo ! Choisis rapidement, le temps passe vite !");
+    mvwprintw(welcome_win, 3, (width - strlen("Bienvenue dans le jeu de memo ! Choisis rapidement, le temps passe vite !")) / 2, "Bienvenue dans le jeu de memo ! Choisis rapidement, le temps passe vite !");
 
     wrefresh(welcome_win);
 }
 
 
+void checkWindowSize() {
+    int width, height;
+    getmaxyx(stdscr, height, width);
 
-void SelectionRandom(int *current_y, int *current_x, int selected[3][4]) {
+    while (width < 170 || height < 60) {
+        clear();
+        attron(COLOR_PAIR(1));
+        mvprintw(0, 0, "LA FENETRE DOIT FAIRE 170x60 AU MINIMUM.");
+        attroff(COLOR_PAIR(1));
+        refresh();
+        getmaxyx(stdscr, height, width);
+    }
+    TextBox();
+}
+
+
+
+// nouvelle selection random, ca retourne un booleen pour savoir si on appuie sur entrer
+bool SelectionRandom(clock_t debut, int *current_y, int *current_x, int selected[3][4], int first_pick_y, int first_pick_x) {
     int random_move = rand() % 12 + 1;
     for (int i = 0; i < random_move; i++) {
-        movecard(current_y, current_x, selected, 1);
+
+        refresh();
+        usleep(100000);
+        movecard(current_y, current_x, 1, selected, first_pick_y, first_pick_x);
     }
-    ungetch('\n');
-
-
+    return true;
 }
+
+
 
 
 
@@ -126,6 +178,10 @@ int jeu(int autom) {
     int current_y = 0, current_x = 0;
     int first_pick_y = -1, first_pick_x = -1;
     int second_pick_y = -1, second_pick_x = -1;
+    char strchrono[20]="Chrono:";
+    srand(time(0));
+    clock_t debut = clock();
+
 
     initscr();
     start_color();
@@ -139,10 +195,10 @@ int jeu(int autom) {
     curs_set(0);
     srand(time(NULL));
     TextBox();
-    halfdelay(10);
 
 
-    // Initialisation des valeurs des cartes
+
+    // valeurs des cartes
     int values[PAIR_COUNT * 2];
     for (int i = 0; i < PAIR_COUNT; ++i) {
         values[i * 2] = values[i * 2 + 1] = i + 1;
@@ -158,7 +214,7 @@ int jeu(int autom) {
     getmaxyx(stdscr, max_y, max_x); // dimensions de l'écran
 
 
-    // Calculer le point de départ pour centrer les cartes
+    // point de départ pour centrer les cartes
     int total_cards_width = (CARD_WIDTH + PADDING) * 4 - PADDING;
     int total_cards_height = (CARD_HEIGHT + PADDING) * 3 - PADDING;
     start_y = (max_y - total_cards_height) / 2;
@@ -179,6 +235,7 @@ int jeu(int autom) {
                 }
             }
 
+
     // donner les valeurs mélangées aux cartes
     for (int i = 0, k = 0; i < 3; i++) {
         for (int j = 0; j < 4; j++, k++) {
@@ -188,32 +245,35 @@ int jeu(int autom) {
     }
 
 
-    /// A REGLER : probleme lorsqu'on veux passer de la premiere a la derniere carte ( on ne saute plus de carte, la selection va sur une carte deja selectionnée )
+
     // Boucle principale
+    nodelay(stdscr, TRUE);
 
     while ((ch = getch()) != 'q') {
-        /// TODO : afficher le chrono dès le lancement du jeu et verifier si il y a pas moyen de faire en sorte que le halfdelay arrete de faire clignoter la selection
-        /*
-        TIMER EN RECONSTRUCTION
-        */
 
+
+        checkWindowSize();
+
+        attron(COLOR_PAIR(1));
+        mvprintw(max_y/5, max_x/2,"Chrono: %.1f", chrono(debut));
+        attroff(COLOR_PAIR(2));
+        refresh();
 
         if(autom == 1){
-            SelectionRandom(&current_y, &current_x, selected);
-            usleep(1000000);
+            if (SelectionRandom(debut, &current_y, &current_x, selected, first_pick_y, first_pick_x)) {
+
+                ch = '\n';
+            }
         }
+
         switch (ch) {
             case 'a':
-                if (current_x==first_pick_x+1 && current_y==first_pick_y){
-                    movecard(&current_y, &current_x, selected, -1);
-                }
-                movecard(&current_y, &current_x, selected, -1);
+                movecard(&current_y, &current_x, -1,selected,first_pick_y, first_pick_x);
+
                 break;
             case 'e':
-                if (current_x==first_pick_x-1 && current_y==first_pick_y){
-                    movecard(&current_y, &current_x, selected, 1);
-                }
-                movecard(&current_y, &current_x, selected, 1);
+
+                movecard(&current_y, &current_x, 1, selected,first_pick_y, first_pick_x);
                 break;
             case '\n':
                 if (revealed[current_y][current_x] == 0) {
@@ -222,7 +282,7 @@ int jeu(int autom) {
                         first_pick_y = current_y;
                         first_pick_x = current_x;
                         revealed[current_y][current_x] = 1;
-                        movecard(&current_y, &current_x, selected, 1);
+                        movecard(&current_y, &current_x, 1, selected,first_pick_y, first_pick_x);
                     } else if (!(current_y == first_pick_y && current_x == first_pick_x)) {
                         second_pick_y = current_y;
                         second_pick_x = current_x;
@@ -239,8 +299,8 @@ int jeu(int autom) {
                                 wrefresh(card_wins[first_pick_y][first_pick_x]);
                                 wrefresh(card_wins[second_pick_y][second_pick_x]);
                                 checkend(card_wins, selected);
-                                usleep(1000000);
-                                movecard(&current_y, &current_x, selected, 1);
+                                usleep(2000000);
+                                movecard(&current_y, &current_x, 1, selected,first_pick_y, first_pick_x);
 
                         } else {
                             // pas de correspondance on retourne les cartes apre 1s
@@ -268,22 +328,27 @@ int jeu(int autom) {
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 4; j++) {
                 int is_matched = selected[i][j];
+
+
                 draw_card(card_wins[i][j], revealed[i][j], card_values[i][j], is_matched);
+
+
             }
         }
-
-
-
         // highlight
         if (!selected[current_y][current_x]) {
             wattron(card_wins[current_y][current_x], COLOR_PAIR(1));
             draw_card(card_wins[current_y][current_x], revealed[current_y][current_x], card_values[current_y][current_x],debug);
             wattroff(card_wins[current_y][current_x], COLOR_PAIR(1));
         }
+
+
     }
+
 
 
     endwin();
 
     return 0;
 }
+
