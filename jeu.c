@@ -261,11 +261,12 @@ int jeu(int autom) {
         refresh();
 
         if(autom == 1){
+
             if (SelectionRandom(debut, &current_y, &current_x, selected, first_pick_y, first_pick_x)) {
 
                 ch = '\n';
             }
-        }
+}
 
         switch (ch) {
             case 'a':
