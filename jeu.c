@@ -11,9 +11,70 @@
 #define PAIR_COUNT 6
 
 /// mod
-int debug = 0; // 1 = triche et 0 = normal
+int debug = 1; // 1 = triche et 0 = normal
+
+/// GLOBAL
+int max_y, max_x;
+clock_t debut;
 
 
+///////////////////////// GESTION DES SCORES /////////////////////////
+
+void initialize_score_file() {
+    FILE *file = fopen("score.txt", "r");
+    if (file == NULL) {
+        // File does not exist, create it and write initial content
+        file = fopen("score.txt", "w");
+        fprintf(file, "1e:\n2e:\n3e:\n");
+    }
+    fclose(file);
+}
+void update_score_file(float current_score, char *pseudonym) {
+    float top_scores[3] = {0};
+    char top_pseudonyms[3][5] = {{0}};
+    char formatted_score[10];
+    char line[20];
+
+    FILE *file = fopen("score.txt", "r");
+    for (int i = 0; i < 3; ++i) {
+        if (fgets(line, sizeof(line), file) != NULL) {
+            // Vérifie si la ligne contient un score et un pseudonyme valides
+            if (sscanf(line, "%*s %f %s", &top_scores[i], top_pseudonyms[i]) != 2) {
+                top_scores[i] = 0;
+                strcpy(top_pseudonyms[i], "");
+            }
+        }
+    }
+    fclose(file);
+
+    // Insère le nouveau score à la bonne place
+    for (int i = 0; i < 3; ++i) {
+        if (current_score < top_scores[i] || top_scores[i] == 0) {
+            for (int j = 2; j > i; --j) {
+                top_scores[j] = top_scores[j - 1];
+                strcpy(top_pseudonyms[j], top_pseudonyms[j - 1]);
+            }
+            top_scores[i] = current_score;
+            strncpy(top_pseudonyms[i], pseudonym, 4);
+            top_pseudonyms[i][4] = '\0';
+            break;
+        }
+    }
+
+    // Réécriture du fichier avec les nouveaux scores
+    file = fopen("score.txt", "w");
+    for (int i = 0; i < 3; ++i) {
+        if (top_scores[i] > 0) {
+            sprintf(formatted_score, "%.2f", top_scores[i]);
+            fprintf(file, "%de: %ss %s\n", i + 1, formatted_score, top_pseudonyms[i]);
+        } else {
+            fprintf(file, "%de:\n", i + 1);
+        }
+    }
+    fclose(file);
+}
+
+///////////////////////////////////////////////////////////////////////////
 
 void draw_card(WINDOW *card_win, int revealed, int value, int matched) {
     werase(card_win);
@@ -34,11 +95,19 @@ void draw_card(WINDOW *card_win, int revealed, int value, int matched) {
     wnoutrefresh(card_win);
 }
 
-
-float chrono(clock_t debut) {
+float chrono(clock_t debut, int max_x, int max_y) {
     clock_t now = clock();
     float sec = (float)(now - debut) / 1000000;
+    attron(COLOR_PAIR(1));
+    mvprintw(max_y/5, (max_x/2)-8,"Chrono: %.1f", sec);
+    attroff(COLOR_PAIR(2));
+    refresh();
     return sec;
+}
+
+int waiting(int nbsec, float chrono_debut_lapsedeteemps){
+    float laps_de_temps =  chrono(debut, max_x, max_y) - chrono_debut_lapsedeteemps;
+    return nbsec>laps_de_temps;
 }
 
 void movecard(int *y, int *x, int direction, int selected[3][4], int first_pick_y, int first_pick_x) {
@@ -82,13 +151,6 @@ void movecard(int *y, int *x, int direction, int selected[3][4], int first_pick_
 }
 
 
-
-
-
-
-
-
-
 int fin = 0;
 void checkend(WINDOW *card_wins[3][4], int selected[3][4]) {
     int all_matched = 1;
@@ -104,13 +166,22 @@ void checkend(WINDOW *card_wins[3][4], int selected[3][4]) {
 
     if (all_matched) {
         fin = 1;
-        usleep(2000000);
-        int max_y, max_x;
-        getmaxyx(stdscr, max_y, max_x);
+
+        clock_t end = clock();
+        float player_score = clock();
+
+        // Clear the screen and prompt for pseudonym
         clear();
-        mvprintw((max_y / 2), (max_x - 2) / 2, "Gestion des scores ici"); /// remplacer par les scores
-        refresh();
-        usleep(3000000);
+        printw("Enter your pseudonym (up to 4 characters): ");
+        echo();
+        char pseudonym[5];
+        getnstr(pseudonym, 4); // This will wait for the user to input their pseudonym
+        noecho();
+
+        // Update score file
+        update_score_file(player_score/1000000, pseudonym);
+
+
         endwin();
         exit(0);
     }
@@ -135,7 +206,6 @@ void TextBox() {
 
 void checkWindowSize() {
     int width, height;
-    getmaxyx(stdscr, height, width);
 
     while (width < 170 || height < 60) {
         clear();
@@ -156,16 +226,10 @@ bool SelectionRandom(clock_t debut, int *current_y, int *current_x, int selected
     for (int i = 0; i < random_move; i++) {
 
         refresh();
-        usleep(100000);
         movecard(current_y, current_x, 1, selected, first_pick_y, first_pick_x);
     }
     return true;
 }
-
-
-
-
-
 
 
 int jeu(int autom) {
@@ -180,8 +244,9 @@ int jeu(int autom) {
     int second_pick_y = -1, second_pick_x = -1;
     char strchrono[20]="Chrono:";
     srand(time(0));
-    clock_t debut = clock();
+    debut = clock();
 
+    initialize_score_file();
 
     initscr();
     start_color();
@@ -249,20 +314,15 @@ int jeu(int autom) {
 
     // Boucle principale
     nodelay(stdscr, TRUE);
+    checkWindowSize();
 
     while ((ch = getch()) != 'q') {
-
-
-        checkWindowSize();
-
-        attron(COLOR_PAIR(1));
-        mvprintw(max_y/5, (max_x/2)-strlen(strchrono),"Chrono: %.1f", chrono(debut));
-        attroff(COLOR_PAIR(2));
-        refresh();
-
+        chrono(debut, max_x, max_y);
         if(autom == 1){
 
+
             if (SelectionRandom(debut, &current_y, &current_x, selected, first_pick_y, first_pick_x)) {
+
 
                 ch = '\n';
             }
@@ -296,21 +356,27 @@ int jeu(int autom) {
                                 // cartes sont egales
                                 selected[first_pick_y][first_pick_x] = 1;
                                 selected[second_pick_y][second_pick_x] = 1;
-                                revealed[first_pick_y][first_pick_x] = 1;
-                                revealed[second_pick_y][second_pick_x] = 1;
+
                                 // peut-être ajouter un refresh ici
                                 wrefresh(card_wins[first_pick_y][first_pick_x]);
                                 wrefresh(card_wins[second_pick_y][second_pick_x]);
                                 checkend(card_wins, selected);
-                                usleep(2000000);
+                                float chrono_debut_lapsedeteemps = chrono(debut, max_x, max_y);
+                                while( waiting(2, chrono_debut_lapsedeteemps) ){
+                                    chrono(debut, max_x, max_y);
+                                }
                                 movecard(&current_y, &current_x, 1, selected,first_pick_y, first_pick_x);
 
                         } else {
                             // pas de correspondance on retourne les cartes apre 1s
-                            usleep(1000000);
+                            float chrono_debut_lapsedeteemps = chrono(debut, max_x, max_y);
+                            while( waiting(2, chrono_debut_lapsedeteemps) ){
+                                chrono(debut, max_x, max_y);
+                            }
                             revealed[first_pick_y][first_pick_x] = 0;
                             revealed[second_pick_y][second_pick_x] = 0;
-
+                            wrefresh(card_wins[first_pick_y][first_pick_x]);
+                            wrefresh(card_wins[second_pick_y][second_pick_x]);
 
 
 
