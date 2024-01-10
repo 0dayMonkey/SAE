@@ -181,6 +181,10 @@ void checkend(WINDOW *card_wins[3][4], int selected[3][4], int autom, int force_
         }
         fclose(file);
         wrefresh(scorewin);
+        usleep(3000000);
+        delwin(scorewin);
+        endwin();
+        exit(0);
     };
     if (all_matched || force_end == 1) {
 
@@ -206,7 +210,7 @@ void checkend(WINDOW *card_wins[3][4], int selected[3][4], int autom, int force_
             usleep(3000000);
         } else {
             mvwprintw(scorewin, start_x+1, max_x/2-strlen("Score"), "Score");
-            mvwprintw(scorewin, start_x+5, max_x/3, "Enter your pseudonym (up to 4 characters): ");
+            mvwprintw(scorewin, start_x+5, max_x/2-(strlen("Enter your pseudonym (up to 4 characters): ")/2), "Enter your pseudonym (up to 4 characters): ");
             wrefresh(scorewin);
 
             // Saisie personnalisée du pseudonyme
@@ -224,10 +228,13 @@ void checkend(WINDOW *card_wins[3][4], int selected[3][4], int autom, int force_
                     wrefresh(scorewin);
 
                 }
+            };
+            if(strlen(pseudonym)==0){
+                strcpy(pseudonym,"user");
             }
-
             // Mise à jour du fichier de score
             update_score_file(player_score, pseudonym);
+            mvwprintw(scorewin, start_x+1, max_x/2-(strlen("Nouveaux scores !")/2), "Nouveaux scores !");
             // Lecture et affichage des scores
         FILE *file = fopen("score.txt", "r");
         char line[100];
@@ -393,7 +400,7 @@ int jeu(int autom) {
         switch (ch) {
             case 'q':
                 checkend(card_wins, selected, autom,0,1);
-                deroulement = false;
+
             case 'w':
                 checkend(card_wins, selected,autom,1,0);
             case 'a':
