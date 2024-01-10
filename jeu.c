@@ -1,6 +1,5 @@
 #include <ncurses.h>
 #include <stdlib.h>
-#include <time.h>
 #include <unistd.h>
 #include <time.h>
 
@@ -11,12 +10,13 @@
 #define PAIR_COUNT 6
 
 /// mod
-int debug = 1; // 1 = triche et 0 = normal
+int debug = 0; // 1 = triche et 0 = normal
 int force_end = 0; // 0 non et 1 oui
 
 /// GLOBAL
 int max_y, max_x;
 clock_t debut;
+int quitbyq = 0; // 0 = non et 1 = oui
 
 
 ///////////////////////// GESTION DES SCORES /////////////////////////
@@ -151,7 +151,7 @@ void movecard(int *y, int *x, int direction, int selected[3][4], int first_pick_
 
 }
 
-void checkend(WINDOW *card_wins[3][4], int selected[3][4], int autom, int force_end) {
+void checkend(WINDOW *card_wins[3][4], int selected[3][4], int autom, int force_end, int quitbyq) {
     int all_matched = 1;
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 4; j++) {
@@ -162,21 +162,32 @@ void checkend(WINDOW *card_wins[3][4], int selected[3][4], int autom, int force_
         }
         if (!all_matched) break;
     }
-
-    if (all_matched || force_end == 1) {
-
-        float player_score = clock();
-        player_score /= 1000000;
-
-    int max_y, max_x;
+        int max_y, max_x;
     getmaxyx(stdscr, max_y, max_x);
     int height = max_y/8;
     int width = max_x;
     int start_y = max_y-height; // En haut
     int start_x = 0; // a gauche
-
     WINDOW *scorewin = newwin(height, width, start_y, start_x);
     box(scorewin, 0, 0);
+    if (quitbyq == 1){
+            // Lecture et affichage des scores
+        FILE *file = fopen("score.txt", "r");
+        char line[100];
+        int line_count = 0;
+        while (fgets(line, sizeof(line), file) != NULL && line_count < 3) {
+            mvwprintw(scorewin, line_count + 2, 1, "%s", line);
+            line_count++;
+        }
+        fclose(file);
+        wrefresh(scorewin);
+    };
+    if (all_matched || force_end == 1) {
+
+        float player_score = clock();
+        player_score /= 1000000;
+
+
 
         // Lecture et affichage des scores
         FILE *file = fopen("score.txt", "r");
@@ -240,7 +251,7 @@ void checkend(WINDOW *card_wins[3][4], int selected[3][4], int autom, int force_
 void TextBox() {
     int max_y, max_x;
     getmaxyx(stdscr, max_y, max_x);
-    int height = max_y/10;
+    int height = max_y/9;
     int width = max_x;
     int start_y = 0; // En haut
     int start_x = 0; // a gauche
@@ -248,7 +259,7 @@ void TextBox() {
     WINDOW *welcome_win = newwin(height, width, start_y, start_x);
     box(welcome_win, 0, 0);
 
-    mvwprintw(welcome_win, 3, (width - strlen("Bienvenue dans le jeu de memo ! Choisis rapidement, le temps passe vite !")) / 2, "Bienvenue dans le jeu de memo ! Choisis rapidement, le temps passe vite !");
+    mvwprintw(welcome_win, 2, (width - strlen("Bienvenue dans le jeu de memo ! Choisis rapidement, le temps passe vite !")) / 2, "Bienvenue dans le jeu de memo ! Choisis rapidement, le temps passe vite !");
 
     wrefresh(welcome_win);
 }
@@ -301,7 +312,7 @@ int jeu(int autom) {
     initscr();
     start_color();
     init_pair(1, COLOR_YELLOW, COLOR_BLACK);
-    init_pair(2, COLOR_CYAN, COLOR_BLACK);
+    init_pair(2, COLOR_MAGENTA, COLOR_BLACK);
     init_pair(3, COLOR_WHITE, COLOR_BLACK);
     init_pair(4, COLOR_BLACK, COLOR_WHITE);
     cbreak();
@@ -365,8 +376,9 @@ int jeu(int autom) {
     // Boucle principale
     nodelay(stdscr, TRUE);
     checkWindowSize();
-
-    while ((ch = getch()) != 'q') {
+    bool deroulement = true;
+    while (deroulement) {
+        char ch = getch();
         chrono(debut, max_x, max_y);
         if(autom == 1){
 
@@ -379,8 +391,11 @@ int jeu(int autom) {
 }
 
         switch (ch) {
+            case 'q':
+                checkend(card_wins, selected, autom,0,1);
+                deroulement = false;
             case 'w':
-                checkend(card_wins, selected,autom,1);
+                checkend(card_wins, selected,autom,1,0);
             case 'a':
                 movecard(&current_y, &current_x, -1,selected,first_pick_y, first_pick_x);
 
@@ -412,7 +427,7 @@ int jeu(int autom) {
                                 // peut-être ajouter un refresh ici
                                 wrefresh(card_wins[first_pick_y][first_pick_x]);
                                 wrefresh(card_wins[second_pick_y][second_pick_x]);
-                                checkend(card_wins, selected,autom,0);
+                                checkend(card_wins, selected,autom,0,0);
                                 float chrono_debut_lapsedeteemps = chrono(debut, max_x, max_y);
                                 while( waiting(2, chrono_debut_lapsedeteemps) ){
                                     chrono(debut, max_x, max_y);
@@ -464,7 +479,6 @@ int jeu(int autom) {
 
 
     }
-
 
 
     endwin();
