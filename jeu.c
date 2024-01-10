@@ -12,6 +12,7 @@
 
 /// mod
 int debug = 1; // 1 = triche et 0 = normal
+int force_end = 0; // 0 non et 1 oui
 
 /// GLOBAL
 int max_y, max_x;
@@ -150,9 +151,7 @@ void movecard(int *y, int *x, int direction, int selected[3][4], int first_pick_
 
 }
 
-
-int fin = 0;
-void checkend(WINDOW *card_wins[3][4], int selected[3][4]) {
+void checkend(WINDOW *card_wins[3][4], int selected[3][4], int autom, int force_end) {
     int all_matched = 1;
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 4; j++) {
@@ -164,28 +163,79 @@ void checkend(WINDOW *card_wins[3][4], int selected[3][4]) {
         if (!all_matched) break;
     }
 
-    if (all_matched) {
-        fin = 1;
+    if (all_matched || force_end == 1) {
 
-        clock_t end = clock();
         float player_score = clock();
+        player_score /= 1000000;
 
-        // Clear the screen and prompt for pseudonym
-        clear();
-        printw("Enter your pseudonym (up to 4 characters): ");
-        echo();
-        char pseudonym[5];
-        getnstr(pseudonym, 4); // This will wait for the user to input their pseudonym
-        noecho();
+    int max_y, max_x;
+    getmaxyx(stdscr, max_y, max_x);
+    int height = max_y/8;
+    int width = max_x;
+    int start_y = max_y-height; // En haut
+    int start_x = 0; // a gauche
 
-        // Update score file
-        update_score_file(player_score/1000000, pseudonym);
+    WINDOW *scorewin = newwin(height, width, start_y, start_x);
+    box(scorewin, 0, 0);
 
+        // Lecture et affichage des scores
+        FILE *file = fopen("score.txt", "r");
+        char line[100];
+        int line_count = 0;
+        while (fgets(line, sizeof(line), file) != NULL && line_count < 3) {
+            mvwprintw(scorewin, line_count + 2, 1, "%s", line);
+            line_count++;
+        }
+        fclose(file);
+        wrefresh(scorewin);
 
-        endwin();
+        if (autom == 1) {
+            char botname[4] = "vBOT";
+            update_score_file(player_score, botname);
+            usleep(3000000);
+        } else {
+            mvwprintw(scorewin, start_x+1, max_x/2-strlen("Score"), "Score");
+            mvwprintw(scorewin, start_x+5, max_x/3, "Enter your pseudonym (up to 4 characters): ");
+            wrefresh(scorewin);
+
+            // Saisie personnalisée du pseudonyme
+            char pseudonym[5] = {0};
+            int index = 0;
+            int ch;
+            while (index < 4) {
+                ch = wgetch(scorewin);
+
+                if (ch == '\n') {
+                    break;
+                } else if (ch != ERR && ch != '\t' && ch != '\b') {
+                    pseudonym[index++] = ch;
+                    wprintw(scorewin, "%c", ch);
+                    wrefresh(scorewin);
+
+                }
+            }
+
+            // Mise à jour du fichier de score
+            update_score_file(player_score, pseudonym);
+            // Lecture et affichage des scores
+        FILE *file = fopen("score.txt", "r");
+        char line[100];
+        int line_count = 0;
+        while (fgets(line, sizeof(line), file) != NULL && line_count < 3) {
+            mvwprintw(scorewin, line_count + 2, 1, "%s", line);
+            line_count++;
+        }
+        fclose(file);
+        wrefresh(scorewin);
+            usleep(3000000);
+        }
+
+        delwin(scorewin); // Suppression de la fenêtre des scores
+        endwin(); // Quitter le mode ncurses
         exit(0);
     }
 }
+
 
 void TextBox() {
     int max_y, max_x;
@@ -329,6 +379,8 @@ int jeu(int autom) {
 }
 
         switch (ch) {
+            case 'w':
+                checkend(card_wins, selected,autom,1);
             case 'a':
                 movecard(&current_y, &current_x, -1,selected,first_pick_y, first_pick_x);
 
@@ -360,7 +412,7 @@ int jeu(int autom) {
                                 // peut-être ajouter un refresh ici
                                 wrefresh(card_wins[first_pick_y][first_pick_x]);
                                 wrefresh(card_wins[second_pick_y][second_pick_x]);
-                                checkend(card_wins, selected);
+                                checkend(card_wins, selected,autom,0);
                                 float chrono_debut_lapsedeteemps = chrono(debut, max_x, max_y);
                                 while( waiting(2, chrono_debut_lapsedeteemps) ){
                                     chrono(debut, max_x, max_y);
