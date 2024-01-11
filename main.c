@@ -1,7 +1,5 @@
-#include <ncurses.h>
-#include <string.h>
+#include "header.h"
 
-#include "jeu.c"
 int main() {
     initscr();
     noecho();
@@ -9,18 +7,16 @@ int main() {
     cbreak();
     keypad(stdscr, TRUE);
 
+
     start_color();
 
     init_color(COLOR_RED, 255, 255, 0);
-    init_pair(1, COLOR_YELLOW , COLOR_BLACK);
-    init_pair(2, COLOR_GREEN, COLOR_BLACK);
     init_pair(3,COLOR_BLACK,COLOR_WHITE);
-    init_pair(4, COLOR_WHITE,COLOR_BLACK);
 
     bkgdset(COLOR_PAIR(3));
 
-    int ligne, colonne;
     getmaxyx(stdscr, ligne, colonne);
+    checkWindowSize();
 
     // ASCII art
     const char *ascii_art[] = {
