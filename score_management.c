@@ -11,18 +11,23 @@ void initialize_score_file()
   }
   fclose(file);
 }
-void update_score_file(float current_score, char* pseudonym)
-{
+void update_score_file(float current_score, char* pseudonym) {
   float top_scores[3] = { 0 };
   char top_pseudonyms[3][5] = { { 0 } };
   char formatted_score[10];
   char line[20];
 
+  // Ouvre le fichier en mode lecture
   FILE* file = fopen("score.txt", "r");
+  if (file == NULL) {
+    perror("Erreur lors de l'ouverture du fichier de score");
+    return;
+  }
+
   for (int i = 0; i < 3; ++i) {
     if (fgets(line, sizeof(line), file) != NULL) {
-      // Vérifie si la ligne contient un score et un pseudonyme valides
-      if (sscanf(line, "%*s %f %s", &top_scores[i], top_pseudonyms[i]) != 2) {
+      // Extraction du score et du pseudonyme
+      if (sscanf(line, "%*s %f %4s", &top_scores[i], top_pseudonyms[i]) != 2) {
         top_scores[i] = 0;
         strcpy(top_pseudonyms[i], "");
       }
@@ -46,15 +51,21 @@ void update_score_file(float current_score, char* pseudonym)
 
   // Réécriture du fichier avec les nouveaux scores
   file = fopen("score.txt", "w");
+  if (file == NULL) {
+    perror("Erreur lors de la réouverture du fichier de score");
+    return;
+  }
+
   for (int i = 0; i < 3; ++i) {
     if (top_scores[i] > 0) {
       sprintf(formatted_score, "%.2f", top_scores[i]);
-      fprintf(file, "%de: %ss %s\n", i + 1, formatted_score, top_pseudonyms[i]);
+      fprintf(file, "%de: %s %s\n", i + 1, formatted_score, top_pseudonyms[i]);
     } else {
       fprintf(file, "%de:\n", i + 1);
     }
   }
   fclose(file);
 }
+
 
 ///////////////////////////////////////////////////////////////////////////
