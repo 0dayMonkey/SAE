@@ -59,7 +59,7 @@ void checkend(WINDOW* card_wins[3][4], int selected[3][4], int autom,
       update_score_file(player_score, botname);
       usleep(3000000);
     } else {
-      mvwprintw(scorewin, start_x + 1, colonne / 2 - strlen("Score"), "Score");
+      mvwprintw(scorewin, start_x + 1, colonne / 2 - strlen("VICTOIRE"), "VICTOIRE");
       mvwprintw(scorewin, start_x + 5,
           colonne / 2
               - (strlen("Enter your pseudonym (up to 4 characters): ") / 2),
