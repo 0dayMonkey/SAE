@@ -25,6 +25,7 @@ void update_score_file(float current_score, char* pseudonym) {
   FILE* file = fopen("score.txt", "r");
   if (file == NULL) {
     perror("Error opening score file");
+    exit(-3);
     return;
   }
 
@@ -60,6 +61,7 @@ void update_score_file(float current_score, char* pseudonym) {
   file = fopen("score.txt", "w");
   if (file == NULL) {
     perror("Error reopening score file");
+    exit(-3);
     return;
   }
 

@@ -7,35 +7,21 @@ int force_end = 0; // 0 non et 1 oui
 /// GLOBAL
 int ligne, colonne;
 clock_t debut;
+
+
 int quitbyq = 0; // 0 = non et 1 = oui
-
-
-
-
-
-
-// nouvelle selection random, ca retourne un booleen pour savoir si on appuie
-// sur entrer
-bool SelectionRandom(clock_t debut, int* current_y, int* current_x,
-    int selected[3][4], int first_pick_y, int first_pick_x)
-{
-  int random_move = rand() % 12 + 1;
-  for (int i = 0; i < random_move; i++) {
-    movecard(current_y, current_x, 1, selected, first_pick_y, first_pick_x);
-  }
-  return true;
-}
+int card_values[3][4];
+int revealed[3][4] = { { 0 } };
+int selected[3][4] = { { 0 } };
+int start_y, start_x;
+int current_y = 0, current_x = 0;
+int first_pick_y = -1, first_pick_x = -1;
+int second_pick_y = -1, second_pick_x = -1;
 
 int jeu(int autom)
 {
   WINDOW* card_wins[3][4];
-  int card_values[3][4];
-  int revealed[3][4] = { { 0 } };
-  int selected[3][4] = { { 0 } };
-  int start_y, start_x;
-  int current_y = 0, current_x = 0;
-  int first_pick_y = -1, first_pick_x = -1;
-  int second_pick_y = -1, second_pick_x = -1;
+
   srand(time(0));
   debut = clock();
 
@@ -56,20 +42,9 @@ int jeu(int autom)
   srand(time(NULL));
   TextBox();
 
-  // valeurs des cartes
   int values[PAIR_COUNT * 2];
-  for (int i = 0; i < PAIR_COUNT; ++i) {
-    values[i * 2] = values[i * 2 + 1] = i + 1;
-  }
-  for (int i = 0; i < PAIR_COUNT * 2; ++i) {
-    int r = rand() % (PAIR_COUNT * 2);
-    int temp = values[i];
-    values[i] = values[r];
-    values[r] = temp;
-  }
+  init_card(values);
 
-  int ligne, colonne; // stocker les dimensions de l'écran
-  getmaxyx(stdscr, ligne, colonne); // dimensions de l'écran
 
   // point de départ pour centrer les cartes
   int total_cards_width = (CARD_WIDTH + PADDING) * 4 - PADDING;
@@ -77,33 +52,9 @@ int jeu(int autom)
   start_y = (ligne - total_cards_height) / 2;
   start_x = (colonne - total_cards_width) / 2;
 
-  // positionner les cartes
-  for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < 4; j++) {
-      card_wins[i][j] = newwin(CARD_HEIGHT, CARD_WIDTH,
-          start_y + i * (CARD_HEIGHT + PADDING),
-          start_x + j * (CARD_WIDTH + PADDING));
-      if (i == 0 && j == 0) {
-        // highlight la premiere carte ( au demarage du jeu )
-        wattron(card_wins[i][j], COLOR_PAIR(1));
-        draw_card(card_wins[i][j], revealed[i][j], ' ', debug);
-        wattroff(card_wins[i][j], COLOR_PAIR(1));
-      } else {
-        draw_card(card_wins[i][j], revealed[i][j], ' ', debug);
-        doupdate();
-      }
-    }
-  }
+  position_cards(card_wins, start_y, start_x, revealed, debug);
+  assign_shuffled_values(card_values, values, card_wins, start_y, start_x);
 
-  // donner les valeurs mélangées aux cartes
-  for (int i = 0, k = 0; i < 3; i++) {
-    for (int j = 0; j < 4; j++, k++) {
-      card_values[i][j] = values[k];
-      card_wins[i][j] = newwin(CARD_HEIGHT, CARD_WIDTH,
-          start_y + (CARD_HEIGHT + PADDING) * i,
-          start_x + (CARD_WIDTH + PADDING) * j);
-    }
-  }
 
   // Boucle principale
   nodelay(stdscr, TRUE);
@@ -118,15 +69,8 @@ int jeu(int autom)
       ch = '\n';
     }
 
-    // refresh les cartes
-    for (int i = 0; i < 3; i++) {
-      for (int j = 0; j < 4; j++) {
-        int is_matched = selected[i][j];
+    refresh_cards(card_wins, revealed, card_values, selected);
 
-        draw_card(
-            card_wins[i][j], revealed[i][j], card_values[i][j], is_matched);
-      }
-    }
     // highlight
     if (!selected[current_y][current_x]) {
       wattron(card_wins[current_y][current_x], COLOR_PAIR(1));

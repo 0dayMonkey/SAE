@@ -1,5 +1,6 @@
 #include "header.h"
 
+
 void checkend(WINDOW* card_wins[3][4], int selected[3][4], int autom,
     int force_end, int quitbyq)
 {
@@ -14,8 +15,6 @@ void checkend(WINDOW* card_wins[3][4], int selected[3][4], int autom,
     if (!all_matched)
       break;
   }
-  int ligne, colonne;
-  getmaxyx(stdscr, ligne, colonne);
   int height = ligne / 8;
   int width = colonne;
   int start_y = ligne - height; // En haut

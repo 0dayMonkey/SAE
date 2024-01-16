@@ -1,7 +1,14 @@
 #include "header.h"
 
 int main() {
+
     initscr();
+        if (initscr() == NULL) {
+        fprintf(stderr, "error initializing ncurses\n");
+        return 1;
+    }
+        getmaxyx(stdscr, ligne, colonne);
+    checkWindowSize();
     noecho();
     curs_set(0);
     cbreak();
@@ -15,8 +22,7 @@ int main() {
 
     bkgdset(COLOR_PAIR(3));
 
-    getmaxyx(stdscr, ligne, colonne);
-    checkWindowSize();
+
 
     // ASCII art
     const char *ascii_art[] = {
