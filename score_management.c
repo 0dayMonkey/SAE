@@ -1,7 +1,9 @@
 #include "header.h"
 
-// Initializes or creates the score file with default content if it does not exist.
-void initialize_score_file() {
+// Initializes or creates the score file with default content if it does not
+// exist.
+void initialize_score_file()
+{
     FILE* file = fopen("score.txt", "r");
     if (file == NULL) {
         // Creating and writing default content to the new score file
@@ -12,7 +14,8 @@ void initialize_score_file() {
 }
 
 // Updates the score file with a new entry (current score and pseudonym).
-void update_score_file(float current_score, char *pseudonym) {
+void update_score_file(float current_score, char* pseudonym)
+{
     float top_scores[3] = { 0 };
     char top_pseudonyms[3][5] = { { 0 } };
     char formatted_score[10];
@@ -28,7 +31,8 @@ void update_score_file(float current_score, char *pseudonym) {
     for (int i = 0; i < 3; ++i) {
         if (fgets(line, sizeof(line), file) != NULL) {
             // Parsing line to extract score and pseudonym; reset if failed
-            if (sscanf(line, "%*s %f %4s", &top_scores[i], top_pseudonyms[i]) != 2) {
+            if (sscanf(line, "%*s %f %4s", &top_scores[i], top_pseudonyms[i])
+                != 2) {
                 top_scores[i] = 0;
                 strcpy(top_pseudonyms[i], "");
             }
@@ -64,7 +68,8 @@ void update_score_file(float current_score, char *pseudonym) {
     for (int i = 0; i < 3; ++i) {
         if (top_scores[i] > 0) {
             sprintf(formatted_score, "%.2f", top_scores[i]);
-            fprintf(file, "%de: %s %s\n", i + 1, formatted_score, top_pseudonyms[i]);
+            fprintf(file, "%de: %s %s\n", i + 1, formatted_score,
+                top_pseudonyms[i]);
         } else {
             fprintf(file, "%de:\n", i + 1);
         }
