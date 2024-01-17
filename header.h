@@ -66,7 +66,7 @@ float chrono(clock_t debut, int colonne, int ligne);
  * @brief   Waits for a specified number of seconds.
  *          It calculates the elapsed time and checks if it is less than
  *          the specified number of seconds.
- * @author  Naïm
+ * @author  Naïm & Loris
  * @date    03/01/2024
  * @return  int - 1 (true) if the elapsed time is less than the specified
  *          duration, 0 (false) otherwise.
@@ -114,7 +114,7 @@ void TextBox();
 /*****************************************************************************
  * @brief   Moves the cursor to a new card position based on the given direction.
  *          It accounts for wrapping around the grid and already selected cards.
- * @author  Naïm
+ * @author  Naïm & Loris
  * @date    30/11/2023
  * @return  void
  * @arg     y - Pointer to the current vertical position of the cursor.
@@ -240,7 +240,7 @@ void assign_shuffled_values(int card_values[3][4], int values[], WINDOW* card_wi
  * @brief   Refreshes the display of all cards on the screen.
  *          It updates the visual state of each card, whether it's matched,
  *          revealed, or hidden.
- * @author  Naïm
+ * @author  Naïm & Loris
  * @date    16/01/2024
  * @return  void
  * @arg     card_wins - Array of window pointers for each card.

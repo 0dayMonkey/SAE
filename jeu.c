@@ -7,21 +7,20 @@ int force_end = 0; // 0 non et 1 oui
 /// GLOBAL
 int ligne, colonne;
 clock_t debut;
-
-
 int quitbyq = 0; // 0 = non et 1 = oui
-int card_values[3][4];
-int revealed[3][4] = { { 0 } };
-int selected[3][4] = { { 0 } };
-int start_y, start_x;
-int current_y = 0, current_x = 0;
-int first_pick_y = -1, first_pick_x = -1;
-int second_pick_y = -1, second_pick_x = -1;
+
+
 
 int jeu(int autom)
 {
   WINDOW* card_wins[3][4];
-
+  int card_values[3][4];
+  int revealed[3][4] = { { 0 } };
+  int selected[3][4] = { { 0 } };
+  int start_y, start_x;
+  int current_y = 0, current_x = 0;
+  int first_pick_y = -1, first_pick_x = -1;
+  int second_pick_y = -1, second_pick_x = -1;
   srand(time(0));
   debut = clock();
 
@@ -42,9 +41,20 @@ int jeu(int autom)
   srand(time(NULL));
   TextBox();
 
+  // valeurs des cartes
   int values[PAIR_COUNT * 2];
-  init_card(values);
+  for (int i = 0; i < PAIR_COUNT; ++i) {
+    values[i * 2] = values[i * 2 + 1] = i + 1;
+  }
+  for (int i = 0; i < PAIR_COUNT * 2; ++i) {
+    int r = rand() % (PAIR_COUNT * 2);
+    int temp = values[i];
+    values[i] = values[r];
+    values[r] = temp;
+  }
 
+  int ligne, colonne; // stocker les dimensions de l'écran
+  getmaxyx(stdscr, ligne, colonne); // dimensions de l'écran
 
   // point de départ pour centrer les cartes
   int total_cards_width = (CARD_WIDTH + PADDING) * 4 - PADDING;
@@ -52,9 +62,8 @@ int jeu(int autom)
   start_y = (ligne - total_cards_height) / 2;
   start_x = (colonne - total_cards_width) / 2;
 
-  position_cards(card_wins, start_y, start_x, revealed, debug);
-  assign_shuffled_values(card_values, values, card_wins, start_y, start_x);
-
+ position_cards(card_wins, start_y, start_x, revealed, debug);
+ assign_shuffled_values(card_values, values, card_wins, start_y, start_x);
 
   // Boucle principale
   nodelay(stdscr, TRUE);
@@ -69,8 +78,7 @@ int jeu(int autom)
       ch = '\n';
     }
 
-    refresh_cards(card_wins, revealed, card_values, selected);
-
+refresh_cards(card_wins, revealed, card_values, selected);
     // highlight
     if (!selected[current_y][current_x]) {
       wattron(card_wins[current_y][current_x], COLOR_PAIR(1));
