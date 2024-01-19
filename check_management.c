@@ -134,6 +134,7 @@ void checkWindowSize()
     TextBox();
 }
 
+
 void movecard(int* y, int* x, int direction, int selected[3][4],
     int first_pick_y, int first_pick_x)
 {
